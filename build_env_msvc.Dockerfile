@@ -245,6 +245,7 @@ RUN git clone https://github.com/docwire/wv2.git `
 
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libiconv_x64-windows\lib\*' -Destination 'C:\lib' -Recurse
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libiconv_x64-windows\include\*.h' -Destination 'C:\include' -Recurse
+
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libxml2_x64-windows\include\libxml' -Destination 'C:\include' -Recurse
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libxml2_x64-windows\include\libxml2' -Destination 'C:\include' -Recurse
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libxml2_x64-windows\lib\*' -Destination 'C:\lib' -Recurse -Force
@@ -252,3 +253,10 @@ RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libxml2_x64-windows\lib\*' -De
 RUN vcpkg\vcpkg install tesseract:x64-windows
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\tesseract_x64-windows\lib\*' -Destination 'C:\lib' -Recurse -Force
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\tesseract_x64-windows\include\tesseract' -Destination 'C:\include' -Recurse
+
+RUN vcpkg\vcpkg install libarchive:x64-windows
+RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libarchive_x64-windows\lib\*' -Destination 'C:\lib' -Recurse -Force
+RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libarchive_x64-windows\include\*.h' -Destination 'C:\include' -Recurse
+
+RUN dir /S C:\vcpkg\packages
+RUN "c:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.14.26428\bin\Hostx64\x64\dumpbin" /DEPENDENTS C:\vcpkg\packages\libarchive_x64-windows\bin\archive.dll

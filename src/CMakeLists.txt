@@ -5,6 +5,7 @@ set(DOCTOTEXT_SOURCES
         doctotext_c_api.cpp
         attachment.cpp
         exception.cpp
+        decompress_archives.cpp
         doctotext_link.cpp
         list_style.cpp
         metadata.cpp
@@ -53,7 +54,8 @@ if(MSVC)
                                                  debug boost_filesystem-vc140-mt-gd
                                                  optimized boost_filesystem-vc140-mt
                                                  debug boost_system-vc140-mt-gd
-                                                 optimized boost_system-vc140-mt)
+                                                 optimized boost_system-vc140-mt
+                                                 general archive)
 
     set_target_properties( doctotext_core
             PROPERTIES
@@ -63,7 +65,7 @@ if(MSVC)
     target_compile_options(doctotext_core PUBLIC "/Zc:__cplusplus")
 
 else()
-    target_link_libraries(doctotext_core PRIVATE wv2 pthread boost_filesystem boost_system)
+    target_link_libraries(doctotext_core PRIVATE wv2 pthread boost_filesystem boost_system archive)
 endif()
 
 target_compile_options(doctotext_core PUBLIC ${EXTRA_FLAGS})
@@ -226,6 +228,7 @@ INSTALL(FILES ${CMAKE_BINARY_DIR}/src/Debug/doctotext_ocr.pdb ${CMAKE_BINARY_DIR
 configure_file(${CMAKE_SOURCE_DIR}/src/doctotext_c_api.h ${CMAKE_BINARY_DIR}/doctotext_c_api.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/metadata.h ${CMAKE_BINARY_DIR}/metadata.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/formatting_style.h ${CMAKE_BINARY_DIR}/formatting_style.h COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/src/decompress_archives.h ${CMAKE_BINARY_DIR}/decompress_archives.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/doctotext_link.h ${CMAKE_BINARY_DIR}/doctotext_link.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/exception.h ${CMAKE_BINARY_DIR}/exception.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/attachment.h ${CMAKE_BINARY_DIR}/attachment.h COPYONLY)

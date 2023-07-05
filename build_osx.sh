@@ -5,7 +5,9 @@ rm /usr/local/bin/{2to3,2to3-3.11,idle3,idle3.11,pydoc3,pydoc3.11,python3,python
 
 brew install md5sha1sum automake autogen doxygen
 
-brew install libiconv podofo freetype libxml2 zlib leptonica tesseract && tesseract --list-langs
+brew install libiconv podofo freetype libxml2 zlib leptonica tesseract
+
+tesseract --list-langs
 
 wget -nc https://sourceforge.net/projects/htmlcxx/files/v0.87/htmlcxx-0.87.tar.gz
 echo "ac7b56357d6867f649e0f1f699d9a4f0f03a6e80  htmlcxx-0.87.tar.gz" | shasum -c
@@ -107,6 +109,15 @@ cmake -DCMAKE_CXX_STANDARD=17 .
 cmake --build .
 cmake --install .
 cd ..
+
+wget https://github.com/libarchive/libarchive/releases/download/v3.6.2/libarchive-3.6.2.tar.gz
+tar -xzvf libarchive-3.6.2.tar.gz
+cd libarchive-3.6.2 && \
+./configure --without-iconv --without-openssl --without-cng --disable-static --enable-dynamic
+make
+make install-strip
+cd ..
+rm -rf libarchive-3.6.2
 
 mkdir -p build
 cd build

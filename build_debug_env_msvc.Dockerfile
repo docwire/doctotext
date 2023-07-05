@@ -118,8 +118,6 @@ RUN git clone https://github.com/docwire/mimetic.git `
     && cmake --build . --config Debug --target install `
     && cd ..\..
 
-RUN dir C:\lib
-
 # libs
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\podofo_x64-windows\debug\lib\*' -Destination 'C:\lib' -Recurse `
     && powershell Copy-Item -Path 'C:\vcpkg\packages\freetype_x64-windows\debug\lib\*' -Destination 'C:\lib' -Recurse -Force`
@@ -253,3 +251,7 @@ RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libxml2_x64-windows\debug\lib\
 RUN vcpkg\vcpkg install tesseract:x64-windows
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\tesseract_x64-windows\debug\lib\*' -Destination 'C:\lib' -Recurse -Force
 RUN powershell Copy-Item -Path 'C:\vcpkg\packages\tesseract_x64-windows\include\tesseract' -Destination 'C:\include' -Recurse
+
+RUN vcpkg\vcpkg install libarchive:x64-windows
+RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libarchive_x64-windows\debug\lib\*' -Destination 'C:\lib' -Recurse -Force
+RUN powershell Copy-Item -Path 'C:\vcpkg\packages\libarchive_x64-windows\include\*.h' -Destination 'C:\include' -Recurse
