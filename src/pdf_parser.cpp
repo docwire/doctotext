@@ -6209,8 +6209,10 @@ struct PDFParser::Implementation
 				}
 				if (!parsed_cid)
 				{
-					m_cid_len -= 2;
-					m_cid_begin += 2;
+					cid = *m_cid_begin;
+					output += *m_cid_begin;
+					m_cid_len--;
+					m_cid_begin++;
 				}
 				return cid;
 			}
@@ -7621,6 +7623,8 @@ struct PDFParser::Implementation
 												{
 													tj_array[tj_array.size() - 1].m_text = pdfstring_to_hex(a[j].GetString());
 												}
+												tj_array[tj_array.size() - 1].m_utf_text = a[j].GetString().GetString();
+												tj_array[tj_array.size() - 1].m_pdf_string = a[j].GetString();
 											}
 											break;
 										}
@@ -7676,6 +7680,8 @@ struct PDFParser::Implementation
 									{
 										tj_array[tj_array.size() - 1].m_text = pdfstring_to_hex(text);
 									}
+									tj_array[tj_array.size() - 1].m_utf_text = text.GetString();
+									tj_array[tj_array.size() - 1].m_pdf_string = text;
 								}
 								if (pCurFont) {
 									page_text.executeTJ(tj_array, pCurFont);

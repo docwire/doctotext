@@ -1,5 +1,6 @@
 Unreleased:
     * EML parser crash for unknown attachment file name extensions fixed
+    * PDF parser infinite loop when font is unknown fixed
 
 Version 5.0.9:
     * Replace README file with more detailed README.md prepared for public GitHub repository
