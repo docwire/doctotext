@@ -37,6 +37,7 @@
 #include <iostream>
 #include <boost/signals2.hpp>
 #include <libxml/xmlreader.h>
+#include "log.h"
 #include "metadata.h"
 #include "misc.h"
 #include "xml_stream.h"
@@ -53,8 +54,7 @@ class ODFXMLParser::CommandHandlersSet
 			Thats a problem, since we can have table:body, office:body etc. What if more xml tags are not handled correctly?
 			if (xml_stream.fullName() != "office:body")
 				return;
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_BODY Command\n";
+			doctotext_log(debug) << "ODF_BODY Command";
 			//we are inside body, we can disable adding text nodes
 			parser.disableText(false);
 		}
@@ -64,8 +64,7 @@ class ODFXMLParser::CommandHandlersSet
 								bool& children_processed, std::string& level_suffix, bool first_on_level,
 								std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_OBJECT Command\n";
+			doctotext_log(debug) << "ODF_OBJECT Command";
 			xml_stream.levelDown();
 			parser.disableText(true);
 			text += parser.parseXmlData(xml_stream, mode, options, zipfile, links);
@@ -78,8 +77,7 @@ class ODFXMLParser::CommandHandlersSet
 									bool& children_processed, std::string& level_suffix, bool first_on_level,
 									std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_BINARY_DATA Command\n";
+			doctotext_log(debug) << "ODF_BINARY_DATA Command";
 			children_processed = true;
 		}
 };
@@ -193,13 +191,13 @@ std::string ODFXMLParser::plainText(XmlParseMode mode, FormattingStyle& formatti
 		ex.appendError("Error parsing Flat XML file");
 		throw;
 	}
-	decodeSpecialLinkBlocks(text, getInnerLinks(), getLogStream());
+	decodeSpecialLinkBlocks(text, getInnerLinks());
 	return text;
 }
 
 Metadata ODFXMLParser::metaData() const
 {
-	getLogOutStream() << "Extracting metadata.\n";
+	doctotext_log(debug) << "Extracting metadata.";
 	Metadata metadata;
 
 	std::string xml_content;
@@ -244,16 +242,13 @@ Parser&
 ODFXMLParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	setVerboseLogging(isVerboseLogging());
-	setLogStream(getLogOutStream());
 	return *this;
 }
 
 void
 ODFXMLParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using ODFXML parser.\n";
+	doctotext_log(debug) << "Using ODFXML parser.";
 	auto formatting_style = getFormattingStyle();
   plainText(XmlParseMode::PARSE_XML, formatting_style);
 

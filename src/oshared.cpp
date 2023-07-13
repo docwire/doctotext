@@ -35,6 +35,7 @@
 #include "exception.h"
 #include "misc.h"
 #include <iostream>
+#include "log.h"
 #include "metadata.h"
 #include "wv2/utilities.h"
 #include <time.h>
@@ -43,12 +44,12 @@
 
 using namespace wvWare;
 
-static bool read_vt_string(ThreadSafeOLEStreamReader* reader, std::ostream& log_stream, std::string& s)
+static bool read_vt_string(ThreadSafeOLEStreamReader* reader, std::string& s)
 {
 	U16 string_type;
 	if (!reader->readU16(string_type) || string_type != 0x1E)
 	{
-		log_stream << "Incorrect string type.\n";
+		doctotext_log(error) << "Incorrect string type.";
 		return false;
 	}
 	reader->seek(2, SEEK_CUR); //padding
@@ -65,54 +66,54 @@ static bool read_vt_string(ThreadSafeOLEStreamReader* reader, std::ostream& log_
 	}
 	if (!reader->isValid())
 	{
-		log_stream << "OLE Reader error message: " << reader->getLastError() << "\n";
+		doctotext_log(error) << "OLE Reader error message: " << reader->getLastError();
 		return false;
 	}
 	return true;
 }
 
-static bool read_vt_i4(ThreadSafeOLEStreamReader* reader, std::ostream& log_stream, S32& i)
+static bool read_vt_i4(ThreadSafeOLEStreamReader* reader, S32& i)
 {
 	U16 string_type;
 	if (!reader->readU16(string_type) || string_type != 0x0003)
 	{
-		log_stream << "Incorrect value type.\n";
+		doctotext_log(error) << "Incorrect value type.";
 		return false;
 	}
 	reader->seek(2, SEEK_CUR); //padding
 	reader->readS32(i);
 	if (!reader->isValid())
 	{
-		log_stream << reader->getLastError() << "\n";
+		doctotext_log(error) << reader->getLastError();
 		return false;
 	}
 	return true;
 }
 
-static bool read_vt_i2(ThreadSafeOLEStreamReader* reader, std::ostream& log_stream, S16& i)
+static bool read_vt_i2(ThreadSafeOLEStreamReader* reader, S16& i)
 {
 	U16 string_type;
 	if (!reader->readU16(string_type) || string_type != 0x0002)
 	{
-		log_stream << "Incorrect value type.\n";
+		doctotext_log(error) << "Incorrect value type.";
 		return false;
 	}
 	reader->seek(2, SEEK_CUR); //padding
 	reader->readS16(i);
 	if (!reader->isValid())
 	{
-		log_stream << "OLE Reader error message: " << reader->getLastError() << "\n";
+		doctotext_log(error) << "OLE Reader error message: " << reader->getLastError();
 		return false;
 	}
 	return true;
 }
 
-static bool read_vt_filetime(ThreadSafeOLEStreamReader* reader, std::ostream& log_stream, tm& time)
+static bool read_vt_filetime(ThreadSafeOLEStreamReader* reader, tm& time)
 {
 	U16 type;
 	if (!reader->readU16(type) || type != 0x0040)
 	{
-		log_stream << "Incorrect variable type.\n";
+		doctotext_log(error) << "Incorrect variable type.";
 		return false;
 	}
 	reader->seek(2, SEEK_CUR); //padding
@@ -121,7 +122,7 @@ static bool read_vt_filetime(ThreadSafeOLEStreamReader* reader, std::ostream& lo
 	reader->readU32(file_time_high);
 	if (!reader->isValid())
 	{
-		log_stream << "OLE Reader error message: " << reader->getLastError() << "\n";
+		doctotext_log(error) << "OLE Reader error message: " << reader->getLastError();
 		return false;
 	}
 	if (file_time_low == 0 && file_time_high == 0)
@@ -137,16 +138,16 @@ static bool read_vt_filetime(ThreadSafeOLEStreamReader* reader, std::ostream& lo
   tm* res = thread_safe_gmtime(&t, time_buffer);
 	if (res == NULL)
 	{
-		log_stream << "Incorrect time value.\n";
+		doctotext_log(error) << "Incorrect time value.";
 		return false;
 	}
 	time = *res;
 	return true;
 }
 
-void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, Metadata& meta)
+void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, Metadata& meta)
 {
-	log_stream << "Extracting metadata.\n";
+	doctotext_log(debug) << "Extracting metadata.";
 	if (!storage.isValid())
 		throw Exception("Error opening " + storage.name() + " as OLE file");
 	ThreadSafeOLEStreamReader* reader = NULL;
@@ -192,7 +193,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					std::string author;
-					if (read_vt_string(reader, log_stream, author))
+					if (read_vt_string(reader, author))
 					{
 						meta.setAuthor(author);
 						meta.setAuthorType(Metadata::EXTRACTED);
@@ -203,7 +204,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					std::string last_modified_by;
-					if (read_vt_string(reader, log_stream, last_modified_by))
+					if (read_vt_string(reader, last_modified_by))
 					{
 						meta.setLastModifiedBy(last_modified_by);
 						meta.setLastModifiedByType(Metadata::EXTRACTED);
@@ -214,7 +215,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					tm creation_date;
-					if (read_vt_filetime(reader, log_stream, creation_date))
+					if (read_vt_filetime(reader, creation_date))
 					{
 						meta.setCreationDate(creation_date);
 						meta.setCreationDateType(Metadata::EXTRACTED);
@@ -225,7 +226,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					tm last_modification_date;
-					if (read_vt_filetime(reader, log_stream, last_modification_date))
+					if (read_vt_filetime(reader, last_modification_date))
 					{
 						meta.setLastModificationDate(last_modification_date);
 						meta.setLastModificationDateType(Metadata::EXTRACTED);
@@ -236,7 +237,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					S32 page_count;
-					if (read_vt_i4(reader, log_stream, page_count))
+					if (read_vt_i4(reader, page_count))
 					{
 						meta.setPageCount(page_count);
 						meta.setPageCountType(Metadata::EXTRACTED);
@@ -247,7 +248,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 				{
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					S32 word_count;
-					if (read_vt_i4(reader, log_stream, word_count))
+					if (read_vt_i4(reader, word_count))
 					{
 						meta.setWordCount(word_count);
 						meta.setWordCountType(Metadata::EXTRACTED);
@@ -280,7 +281,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log
 	}
 }
 
-static ThreadSafeOLEStreamReader* open_oshared_document_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, size_t& field_set_stream_start)
+static ThreadSafeOLEStreamReader* open_oshared_document_summary_info(ThreadSafeOLEStorage& storage, size_t& field_set_stream_start)
 {
 	ThreadSafeOLEStreamReader* reader = NULL;
 	try
@@ -326,15 +327,15 @@ static ThreadSafeOLEStreamReader* open_oshared_document_summary_info(ThreadSafeO
 	}
 }
 
-bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, std::string& codepage)
+bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std::string& codepage)
 {
 	size_t field_set_stream_start;
 	if (!storage.isValid())
-		log_stream << "Error opening " << storage.name() << " as OLE file.\n";
+		doctotext_log(error) << "Error opening " << storage.name() << " as OLE file.";
 	ThreadSafeOLEStreamReader* reader = NULL;
 	try
 	{
-		reader = open_oshared_document_summary_info(storage, log_stream, field_set_stream_start);
+		reader = open_oshared_document_summary_info(storage, field_set_stream_start);
 		U32 offset;
 		reader->readU32(offset);
 		int property_set_pos = field_set_stream_start + offset;
@@ -353,9 +354,9 @@ bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std:
 				case 0x00000001:
 					reader->seek(property_set_pos + offset, SEEK_SET);
 					S16 icodepage;
-					if (!read_vt_i2(reader, log_stream, icodepage))
+					if (!read_vt_i2(reader, icodepage))
 					{
-						log_stream << "Error while reading codepage: invalid value.\n";
+						doctotext_log(error) << "Error while reading codepage: invalid value.";
 						delete reader;
 						return false;
 					}
@@ -366,14 +367,14 @@ bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std:
 			reader->seek(p, SEEK_SET);
 			if (!reader->isValid())
 			{
-				log_stream << "OLE Reader error message: " << reader->getLastError() << "\n";
+				doctotext_log(error) << "OLE Reader error message: " << reader->getLastError();
 				delete reader;
 				return false;
 			}
 		}
 		if (!reader->isValid())
 		{
-			log_stream << "OLE Reader error message: " << reader->getLastError() << "\n";
+			doctotext_log(error) << "OLE Reader error message: " << reader->getLastError();
 			delete reader;
 			return false;
 		}
@@ -383,7 +384,7 @@ bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std:
 		if (reader)
 			delete reader;
 		reader = NULL;
-		log_stream << "Error while getting codepage info. Reason: bad_alloc.\n";
+		doctotext_log(error) << "Error while getting codepage info. Reason: bad_alloc.";
 		throw;
 	}
 	catch (Exception& ex)
@@ -391,24 +392,24 @@ bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std:
 		if (reader)
 			delete reader;
 		reader = NULL;
-		log_stream << "Error while getting codepage info. Error message:\n" << ex.getBacktrace();
+		doctotext_log(error) << "Error while getting codepage info. Error message:" << ex.getBacktrace();
 		return false;
 	}
 	delete reader;
-	log_stream << "Information about codepage is missing.\n";
+	doctotext_log(warning) << "Information about codepage is missing.";
 	return false;
 }
 
-void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, int& slide_count)
+void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, int& slide_count)
 {
-	log_stream << "Extracting additional metadata.\n";
+	doctotext_log(debug) << "Extracting additional metadata.";
 	size_t field_set_stream_start;
 	if (!storage.isValid())
 		throw Exception("Error opening " + storage.name() + " as OLE file");
 	ThreadSafeOLEStreamReader* reader = NULL;
 	try
 	{
-		reader = open_oshared_document_summary_info(storage, log_stream, field_set_stream_start);
+		reader = open_oshared_document_summary_info(storage, field_set_stream_start);
 		U32 offset;
 		reader->readU32(offset);
 		int property_set_pos = field_set_stream_start + offset;
@@ -427,7 +428,7 @@ void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, std::ost
 			{
 				case 0x00000007:
 					reader->seek(property_set_pos + offset, SEEK_SET);
-					if (read_vt_i4(reader, log_stream, slide_count))
+					if (read_vt_i4(reader, slide_count))
 						slide_count_found = true;
 					break;
 			}

@@ -35,6 +35,7 @@
 #include "exception.h"
 #include <stdlib.h>
 #include <iostream>
+#include "log.h"
 #include <stdio.h>
 #include <sstream>
 #include "doctotext_unzip.h"
@@ -241,9 +242,7 @@ static std::string ParseDuration(std::string& format, long value)
 struct IWorkParser::Implementation
 {
 	std::string m_file_name;
-	bool m_verbose_logging;
 	std::string m_xml_file;
-	std::ostream* m_log_stream;
 	const char* m_buffer;
 	size_t m_buffer_size;
 
@@ -252,16 +251,14 @@ struct IWorkParser::Implementation
 		private:
 			DocToTextUnzip* m_zipfile;
 			bool m_done;
-			std::ostream* m_log_stream;
 			std::string m_xml_file;
 
 		public:
-			DataSource(DocToTextUnzip& zipfile, std::string& xml_file, std::ostream* log_stream)
+			DataSource(DocToTextUnzip& zipfile, std::string& xml_file)
 			{
 				m_zipfile = &zipfile;
 				m_done = false;
 				m_xml_file = xml_file;
-				m_log_stream = log_stream;
 			}
 
 			void ReadChunk(char* chunk, int len, bool error_if_no_data, int& readed)
@@ -1815,13 +1812,11 @@ struct IWorkParser::Implementation
 		std::string m_authors;
 		std::string m_creation_date;
 		std::string m_last_modify_date;
-		std::ostream* m_log_stream;
 
-		IWorkMetadataContent(XmlReader& xml_reader, Metadata& metadata, std::ostream* log_stream)
+		IWorkMetadataContent(XmlReader& xml_reader, Metadata& metadata)
 		{
 			m_xml_reader = &xml_reader;
 			m_metadata = &metadata;
-			m_log_stream = log_stream;
 			m_in_metadata = false;
 			m_in_authors = false;
 			m_in_last_modify_date = false;
@@ -1833,7 +1828,7 @@ struct IWorkParser::Implementation
 
 		void ParseMetaData()
 		{
-			*m_log_stream << "Extracting metadata.\n";
+			doctotext_log(debug) << "Extracting metadata.";
 			while (true)
 			{
 				m_xml_reader->GetNextElement(m_current_element);
@@ -1856,7 +1851,7 @@ struct IWorkParser::Implementation
 						if (string_to_date(m_creation_date, creation_date))
 							m_metadata->setCreationDate(creation_date);
 						else
-							*m_log_stream << "Error occured during parsing date: " << m_creation_date << ".\n";
+							doctotext_log(error) << "Error occured during parsing date: " << m_creation_date << ".";
 					}
 					if (m_last_modify_date.length() > 0)
 					{
@@ -1864,7 +1859,7 @@ struct IWorkParser::Implementation
 						if (string_to_date(m_last_modify_date, last_modification_date))
 							m_metadata->setLastModificationDate(last_modification_date);
 						else
-							*m_log_stream << "Error occured during parsing date: " << m_last_modify_date << ".\n";
+							doctotext_log(error) << "Error occured during parsing date: " << m_last_modify_date << ".";
 					}
 					return;
 				}
@@ -2003,9 +1998,9 @@ struct IWorkParser::Implementation
 
 	void ReadMetadata(DocToTextUnzip& zipfile, Metadata& metadata)
 	{
-		DataSource xml_data_source(zipfile, m_xml_file, m_log_stream);
+		DataSource xml_data_source(zipfile, m_xml_file);
 		XmlReader xml_reader(xml_data_source);
-		IWorkMetadataContent metadata_content(xml_reader, metadata, m_log_stream);
+		IWorkMetadataContent metadata_content(xml_reader, metadata);
 
 		if (!zipfile.loadDirectory())
 			throw Exception("zip file: Error while loading directory");
@@ -2050,7 +2045,7 @@ struct IWorkParser::Implementation
 
 	void parseIWork(DocToTextUnzip& zipfile, std::string& text)
 	{
-		DataSource xml_data_source(zipfile, m_xml_file, m_log_stream);
+		DataSource xml_data_source(zipfile, m_xml_file);
 		XmlReader xml_reader(xml_data_source);
 		IWorkContent iwork_content(xml_reader);
 
@@ -2094,8 +2089,6 @@ IWorkParser::IWorkParser(const std::string& file_name)
 	{
 		impl = new Implementation();
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = NULL;
 		impl->m_buffer_size = 0;
 	}
@@ -2114,8 +2107,6 @@ IWorkParser::IWorkParser(const char* buffer, size_t size)
 	{
 		impl = new Implementation();
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = buffer;
 		impl->m_buffer_size = size;
 	}
@@ -2132,21 +2123,6 @@ IWorkParser::~IWorkParser()
 	delete impl;
 }
 
-void IWorkParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-bool IWorkParser::isVerboseLogging()
-{
-	return impl->m_verbose_logging;
-}
-
-void IWorkParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 bool IWorkParser::isIWork()
 {
 	DocToTextUnzip unzip;
@@ -2156,7 +2132,7 @@ bool IWorkParser::isIWork()
 		unzip.setArchiveFile(impl->m_file_name);
 	if (!unzip.open())
 	{
-		*impl->m_log_stream << "Cannot unzip file.\n";
+		doctotext_log(error) << "Cannot unzip file.";
 		return false;
 	}
 	if (unzip.exists("index.xml"))
@@ -2168,15 +2144,15 @@ bool IWorkParser::isIWork()
 	if (impl->m_xml_file.empty())
 	{
 		unzip.close();
-		*impl->m_log_stream << "None of the following files (index.xml, index.apxl, presentation.apxl) could not be found.\n";
+		doctotext_log(error) << "None of the following files (index.xml, index.apxl, presentation.apxl) could not be found.";
 		return false;
 	}
-	Implementation::DataSource xml_data_source(unzip, impl->m_xml_file, impl->m_log_stream);
+	Implementation::DataSource xml_data_source(unzip, impl->m_xml_file);
 	Implementation::XmlReader xml_reader(xml_data_source);
 	if (impl->getIWorkType(xml_reader) == Implementation::IWorkContent::encrypted)
 	{
 		unzip.close();
-		*impl->m_log_stream << "This is not iWork file format or file is encrypted.\n";
+		doctotext_log(debug) << "This is not iWork file format or file is encrypted.";
 		return false;
 	}
 	unzip.close();
@@ -2221,8 +2197,7 @@ Metadata IWorkParser::metaData()
 
 std::string IWorkParser::plainText(const FormattingStyle& formatting)
 {
-	if (isVerboseLogging())
-		*impl->m_log_stream << "Using iWork parser.\n";
+	doctotext_log(debug) << "Using iWork parser.";
 	std::string text;
 	DocToTextUnzip unzip;
 	if (impl->m_buffer)

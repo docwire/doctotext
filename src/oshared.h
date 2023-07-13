@@ -33,7 +33,6 @@
 #ifndef DOCTOTEXT_OSHARED_H
 #define DOCTOTEXT_OSHARED_H
 
-#include <iosfwd>
 #include <string>
 
 namespace doctotext
@@ -44,8 +43,8 @@ class ThreadSafeOLEStorage;
 
 using namespace doctotext;
 
-void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, Metadata& meta);
-void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, int& slide_count);
-bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std::ostream& log_stream, std::string& codepage);
+void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, Metadata& meta);
+void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, int& slide_count);
+bool get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage, std::string& codepage);
 
 #endif

@@ -42,6 +42,7 @@
 #include "htmlcxx/html/ParserSax.h"
 #include "htmlcxx/html/CharsetConverter.h"
 #include <list>
+#include "log.h"
 #include "metadata.h"
 #include "misc.h"
 #include <iostream>
@@ -97,8 +98,6 @@ class DocToTextSaxParser : public ParserSax
 		bool m_turn_off_ol_enumeration;
 		std::string m_style_text;
 		std::string m_charset;
-		std::ostream& m_log_stream;
-		bool m_verbose_logging;
 		htmlcxx::CharsetConverter* m_converter;
 		char* m_decoded_buffer;	//for decoding html entities
 		size_t m_decoded_buffer_size;
@@ -139,7 +138,7 @@ class DocToTextSaxParser : public ParserSax
 				}
 				catch (htmlcxx::CharsetConverter::Exception& ex)
 				{
-					m_log_stream << "Warning: Cant convert text to UTF-8 from " + m_charset;
+					doctotext_log(warning) << "Warning: Cant convert text to UTF-8 from " + m_charset;
           delete m_converter;
 					m_converter = nullptr;
 				}
@@ -244,8 +243,7 @@ class DocToTextSaxParser : public ParserSax
 		void foundTag(Node node, bool isEnd) override
 		{
 			const std::string tag_name = node.tagName();
-			if (m_verbose_logging)
-				m_log_stream << "HTML tag found: " << (isEnd ? "/" : "") << tag_name << std::endl;
+			doctotext_log(debug) << "HTML tag found: " << (isEnd ? "/" : "") << tag_name;
 			if (!m_buffered_text.empty())
 			{
 				// https://developer.mozilla.org/en-US/docs/Web/HTML/Block-level_elements
@@ -449,7 +447,7 @@ class DocToTextSaxParser : public ParserSax
 					csd_t charset_detector = csd_open();
 					if (charset_detector == (csd_t)-1)
 					{
-						m_log_stream << "Warning: Could not create charset detector\n";
+						doctotext_log(warning) << "Warning: Could not create charset detector";
 					}
 					else
 					{
@@ -470,16 +468,14 @@ class DocToTextSaxParser : public ParserSax
 						if (res != nullptr)
 						{
 							m_charset = std::string(res);
-							if (m_verbose_logging)
-								m_log_stream << "Could not found explicit information about encoding. Estimated encoding: " + m_charset + "\n";
+							doctotext_log(debug) << "Could not found explicit information about encoding. Estimated encoding: " + m_charset;
 							createCharsetConverter();
 						}
 					}
 					//if we still don't know which encoding is used...
 					if (m_charset.empty())
 					{
-						if (m_verbose_logging)
-							m_log_stream << "Could not detect encoding. Document is assumed to be encoded in UTF-8\n";
+						doctotext_log(debug) << "Could not detect encoding. Document is assumed to be encoded in UTF-8";
 						m_charset = "UTF-8";
 					}
 				}
@@ -520,8 +516,7 @@ class DocToTextSaxParser : public ParserSax
 					}
 					if (!m_charset.empty())
 					{
-						if (m_verbose_logging)
-							m_log_stream << "Following encoding was detected: " + m_charset + "\n";
+						doctotext_log(debug) << "Following encoding was detected: " + m_charset;
 						createCharsetConverter();
 					}
 				}
@@ -531,8 +526,7 @@ class DocToTextSaxParser : public ParserSax
 		void foundText(Node node) override
 		{
 			std::string text = node.text();
-			if (m_verbose_logging)
-				m_log_stream << "HTML text found: [" << text << "]" << std::endl;
+			doctotext_log(debug) << "HTML text found: [" << text << "]";
 			if (m_in_style)
 			{
 				m_style_text += node.text();
@@ -543,22 +537,18 @@ class DocToTextSaxParser : public ParserSax
 			// https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Whitespace#what_is_whitespace
 			// Convert all whitespaces into spaces and reduce all adjacent spaces into a single space
 			text = std::regex_replace(text, std::regex(R"(\s+)"), " ");
-			if (m_verbose_logging)
-				m_log_stream << "After converting and reducing whitespaces: [" << text << "]" << std::endl;
+			doctotext_log(debug) << "After converting and reducing whitespaces: [" << text << "]";
 			bool last_char_was_space = isspace((unsigned char)m_last_char_in_inline_formatting_context);
-			if (m_verbose_logging)
-				m_log_stream << "Last char in inline formatting context was whitespace: " << last_char_was_space << std::endl;
+			doctotext_log(debug) << "Last char in inline formatting context was whitespace: " << last_char_was_space;
 			// Reduce whitespaces between text nodes (end of previous and beginning of current.
 			// Remove whitespaces from beginning of inline formatting context.
 			if (last_char_was_space || m_last_char_in_inline_formatting_context == '\0')
 			{
 				boost::trim_left(text);
-				if (m_verbose_logging)
-					m_log_stream << "After reducing whitespaces between text nodes and removing whitespaces from begining of inline formatting context: [" << text << "]" << std::endl;
+				doctotext_log(debug) << "After reducing whitespaces between text nodes and removing whitespaces from begining of inline formatting context: [" << text << "]";
 			}
 			convertToUtf8(text);
-			if (m_verbose_logging)
-				m_log_stream << "After converting to utf8: [" << text << "]" << std::endl;
+			doctotext_log(debug) << "After converting to utf8: [" << text << "]";
 			if (!text.empty())
 			{
 				m_last_char_in_inline_formatting_context = text.back();
@@ -593,8 +583,7 @@ class DocToTextSaxParser : public ParserSax
 					}
 					if (!m_charset.empty())
 					{
-						if (m_verbose_logging)
-							m_log_stream << "Following encoding was detected: " + m_charset + "\n";
+						doctotext_log(debug) << "Following encoding was detected: " + m_charset;
 						createCharsetConverter();
 					}
 				}
@@ -602,11 +591,11 @@ class DocToTextSaxParser : public ParserSax
 		}
 
 	public:
-		DocToTextSaxParser(std::string& html_content, std::ostream& log_stream, bool verbose_logging, bool skip_decoding, const HTMLParser* parser)
+		DocToTextSaxParser(std::string& html_content, bool skip_decoding, const HTMLParser* parser)
 			: m_in_title(false), m_in_style(false), m_converter(nullptr), m_decoded_buffer(nullptr),
-			m_in_script(false), m_log_stream(log_stream), m_decoded_buffer_size(0),
+			m_in_script(false), m_decoded_buffer_size(0),
 			  m_turn_off_ul_enumeration(false), m_turn_off_ol_enumeration(false),
-			  m_html_content(html_content), m_verbose_logging(verbose_logging), m_skip_decoding(skip_decoding), m_parser(parser), m_last_char_in_inline_formatting_context('\0')
+			  m_html_content(html_content), m_skip_decoding(skip_decoding), m_parser(parser), m_last_char_in_inline_formatting_context('\0')
 		{
 		}
 
@@ -623,7 +612,6 @@ class DocToTextMetaSaxParser : public ParserSax
 {
 	private:
 		Metadata& m_meta;
-		std::ostream& m_log_stream;
 
 	protected:
 		void foundTag(Node node, bool isEnd) override
@@ -671,8 +659,8 @@ class DocToTextMetaSaxParser : public ParserSax
 		}
 
 	public:
-		DocToTextMetaSaxParser(Metadata& meta, std::ostream& log_stream)
-			: m_meta(meta), m_log_stream(log_stream)
+		DocToTextMetaSaxParser(Metadata& meta)
+			: m_meta(meta)
 		{
 		};
 };
@@ -681,8 +669,6 @@ struct HTMLParser::Implementation
 {
 	bool m_skip_decoding{};
 	std::string m_file_name;
-	bool m_verbose_logging{};
-	std::ostream* m_log_stream{};
 	DataStream* m_data_stream{};
 };
 
@@ -695,8 +681,6 @@ HTMLParser::HTMLParser(const std::string& file_name, const std::shared_ptr<docto
 		impl = new Implementation();
 		impl->m_skip_decoding = false;
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_data_stream = nullptr;
 		impl->m_data_stream = new FileStream(file_name);
 	}
@@ -721,8 +705,6 @@ HTMLParser::HTMLParser(const char *buffer, size_t size, const std::shared_ptr<do
 		impl = new Implementation();
 		impl->m_skip_decoding = false;
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_data_stream = nullptr;
 		impl->m_data_stream = new BufferStream(buffer, size);
 	}
@@ -745,22 +727,10 @@ HTMLParser::~HTMLParser()
 	delete impl;
 }
 
-void HTMLParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void HTMLParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 Parser&
 HTMLParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
 	return *this;
 }
 
@@ -779,8 +749,7 @@ bool HTMLParser::isHTML()
 void
 HTMLParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using HTML parser.\n";
+	doctotext_log(debug) << "Using HTML parser.";
 	if (!impl->m_data_stream->open())
 		throw Exception("Error opening file " + impl->m_file_name);
 	size_t size = impl->m_data_stream->size();
@@ -788,7 +757,7 @@ HTMLParser::parse() const
 	if (!impl->m_data_stream->read(&content[0], sizeof(unsigned char), size))
 		throw Exception("Error reading file " + impl->m_file_name);
 	impl->m_data_stream->close();
-	DocToTextSaxParser parser(content, *impl->m_log_stream, impl->m_verbose_logging, impl->m_skip_decoding, this);
+	DocToTextSaxParser parser(content, impl->m_skip_decoding, this);
 	parser.parse(content);
   Metadata metadata = metaData();
   sendTag(StandardTag::TAG_METADATA, "", metadata.getFieldsAsAny());
@@ -796,7 +765,7 @@ HTMLParser::parse() const
 
 Metadata HTMLParser::metaData() const
 {
-	*impl->m_log_stream << "Extracting metadata.\n";
+	doctotext_log(debug) << "Extracting metadata.";
 	Metadata meta;
 	if (!impl->m_data_stream->open())
 		throw Exception("Error opening file " + impl->m_file_name);
@@ -805,7 +774,7 @@ Metadata HTMLParser::metaData() const
 	if (!impl->m_data_stream->read(&content[0], sizeof(unsigned char), size))
 		throw Exception("Error reading file " + impl->m_file_name);
 	impl->m_data_stream->close();
-	DocToTextMetaSaxParser parser(meta, *impl->m_log_stream);
+	DocToTextMetaSaxParser parser(meta);
 	parser.parse(content);
 	return meta;
 }

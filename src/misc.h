@@ -120,7 +120,7 @@ DllExport void insertSpecialLinkBlockIntoText(std::string& text, const Link& lin
 	There is one important requirement: links in "links" vector (2 argument) must contain records
 	in correct order.
 **/
-DllExport void decodeSpecialLinkBlocks(std::string& text, std::vector<Link>& links, std::ostream& log_stream);
+DllExport void decodeSpecialLinkBlocks(std::string& text, std::vector<Link>& links);
 
 DllExport std::string int_to_str(int i);
 

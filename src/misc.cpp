@@ -34,6 +34,7 @@
 
 #include "doctotext_link.h"
 #include <iostream>
+#include "log.h"
 #include <stdio.h>
 #include <string.h>
 #include <sstream>
@@ -380,7 +381,7 @@ void insertSpecialLinkBlockIntoText(std::string& text, const Link &link)
 	text += substitute_string;
 }
 
-void decodeSpecialLinkBlocks(std::string& text, std::vector<Link>& links, std::ostream &log_stream)
+void decodeSpecialLinkBlocks(std::string& text, std::vector<Link>& links)
 {
 	size_t search_position = 0;
 	for (std::vector<Link>::iterator it = links.begin(); it != links.end(); ++it)
@@ -399,7 +400,7 @@ void decodeSpecialLinkBlocks(std::string& text, std::vector<Link>& links, std::o
 			else
 			{
 				//If you can see this message, then check last changes.
-				log_stream << "Warning: output text is corrupted: cannot recover links\n";
+				doctotext_log(warning) << "Warning: output text is corrupted: cannot recover links";
 			}
 		}
 		else

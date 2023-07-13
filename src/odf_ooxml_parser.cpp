@@ -38,6 +38,7 @@
 #include <fstream>
 #include <iostream>
 #include <libxml2/libxml/xmlreader.h>
+#include "log.h"
 #include <map>
 #include "metadata.h"
 #include "misc.h"
@@ -54,7 +55,7 @@ using namespace std;
 
 const int CASESENSITIVITY = 1;
 
-static string locate_main_file(const DocToTextUnzip& zipfile, std::ostream& log_stream)
+static string locate_main_file(const DocToTextUnzip& zipfile)
 {
 	if (zipfile.exists("content.xml"))
 		return "content.xml";
@@ -64,7 +65,7 @@ static string locate_main_file(const DocToTextUnzip& zipfile, std::ostream& log_
 		return "xl/workbook.xml";
 	if (zipfile.exists("ppt/presentation.xml"))
 		return "ppt/presentation.xml";
-	log_stream << "Error - no content.xml, no word/document.xml and no ppt/presentation.xml" << endl;
+	doctotext_log(error) << "Error - no content.xml, no word/document.xml and no ppt/presentation.xml";
 	return "";
 }
 
@@ -76,8 +77,7 @@ class ODFOOXMLParser::CommandHandlersSet
 									 bool& children_processed, std::string& level_suffix, bool first_on_level,
 									 std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_ATTR command.\n";
+			doctotext_log(debug) << "OOXML_ATTR command.";
 			children_processed = true;
 		}
 
@@ -135,8 +135,7 @@ class ODFOOXMLParser::CommandHandlersSet
 								bool& children_processed, std::string& level_suffix, bool first_on_level,
 								std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_CELL command.\n";
+			doctotext_log(debug) << "OOXML_CELL command.";
 			if (!first_on_level)
       {
 				text += "\t";
@@ -201,8 +200,7 @@ class ODFOOXMLParser::CommandHandlersSet
 										bool& children_processed, std::string& level_suffix, bool first_on_level,
 										std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_HEADERFOOTER command.\n";
+			doctotext_log(debug) << "OOXML_HEADERFOOTER command.";
 			// Ignore headers and footers. They can contain some commands like font settings that can mess up output.
 			// warning TODO: Better headers and footers support
 			children_processed = true;
@@ -213,8 +211,7 @@ class ODFOOXMLParser::CommandHandlersSet
 											bool& children_processed, std::string& level_suffix, bool first_on_level,
 											std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_COMMENTREFERENCE command.\n";
+			doctotext_log(debug) << "OOXML_COMMENTREFERENCE command.";
 			int comment_id = str_to_int(xml_stream.attribute("id"));
 			if (parser.getComments().count(comment_id))
 			{
@@ -226,7 +223,7 @@ class ODFOOXMLParser::CommandHandlersSet
 																													{"comment", c.m_text}});
 			}
 			else
-				parser.getLogStream() << "Comment with id " << comment_id << " not found, skipping.\n";
+				doctotext_log(warning) << "Comment with id " << comment_id << " not found, skipping.";
 		}
 
 		static void onOOXMLInstrtext(CommonXMLDocumentParser& parser, XmlStream& xml_stream, XmlParseMode mode,
@@ -234,8 +231,7 @@ class ODFOOXMLParser::CommandHandlersSet
 									 bool& children_processed, std::string& level_suffix, bool first_on_level,
 									 std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_INSTRTEXT command.\n";
+			doctotext_log(debug) << "OOXML_INSTRTEXT command.";
 			children_processed = true;
 		}
 
@@ -244,8 +240,7 @@ class ODFOOXMLParser::CommandHandlersSet
 									 bool& children_processed, std::string& level_suffix, bool first_on_level,
 									 std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "OOXML_TABLESTYLEID command.\n";
+			doctotext_log(debug) << "OOXML_TABLESTYLEID command.";
 			// Ignore style identifier that is embedded as text inside this tag not to treat it as a document text.
 			children_processed = true;
 		}
@@ -297,7 +292,7 @@ struct ODFOOXMLParser::ExtendedImplementation
 		std::string content;
 		if (!zipfile.read("word/comments.xml", &content))
 		{
-			m_interf->getLogStream() << "Error reading word/comments.xml" << endl;
+			doctotext_log(error) << "Error reading word/comments.xml";
 			return false;
 		}
 		std::string xml;
@@ -333,7 +328,7 @@ struct ODFOOXMLParser::ExtendedImplementation
 		}
 		catch (Exception& ex)
 		{
-			m_interf->getLogStream() << "Error parsing word/comments.xml. Error message: " << ex.getBacktrace() << endl;
+			doctotext_log(error) << "Error parsing word/comments.xml. Error message: " << ex.getBacktrace();
 			return false;
 		}
 		return true;
@@ -344,7 +339,7 @@ struct ODFOOXMLParser::ExtendedImplementation
 		std::string content;
 		if (!zipfile.read("styles.xml", &content))
 		{
-			m_interf->getLogStream() << "Error reading styles.xml" << endl;
+			doctotext_log(error) << "Error reading styles.xml";
 			return;
 		}
 		std::string xml;
@@ -364,7 +359,7 @@ struct ODFOOXMLParser::ExtendedImplementation
 		}
 		catch (Exception& ex)
 		{
-			m_interf->getLogStream() << "Error parsing styles.xml. Error message: " << ex.getBacktrace() << endl;
+			doctotext_log(error) << "Error parsing styles.xml. Error message: " << ex.getBacktrace();
 			return;
 		}
 	}
@@ -454,8 +449,6 @@ Parser&
 ODFOOXMLParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	setVerboseLogging(isVerboseLogging());
-	setLogStream(getLogOutStream());
 	return *this;
 }
 
@@ -485,8 +478,7 @@ ODFOOXMLParser::onOOXMLBreak(CommonXMLDocumentParser& parser, XmlStream& xml_str
                              bool& children_processed, std::string& level_suffix, bool first_on_level,
                              std::vector<Link>& links) const
 {
-	if (parser.verbose())
-		parser.getLogStream() << "OOXML_BREAK command.\n";
+	doctotext_log(debug) << "OOXML_BREAK command.";
 	text += "\n";
 
 	parser.trySendTag(StandardTag::TAG_BR);
@@ -508,8 +500,6 @@ bool ODFOOXMLParser::isODFOOXML()
 		zipfile.setBuffer(extended_impl->m_buffer, extended_impl->m_buffer_size);
 	else
 		zipfile.setArchiveFile(extended_impl->m_file_name);
-	if (&getLogStream() != &std::cerr)
-		zipfile.setLogStream(getLogStream());
 	if (!zipfile.open())
 	{
 		if (extended_impl->fileIsEncrypted())
@@ -518,7 +508,7 @@ bool ODFOOXMLParser::isODFOOXML()
 		}
 		return false;
 	}
-	string main_file_name = locate_main_file(zipfile, getLogStream());
+	string main_file_name = locate_main_file(zipfile);
 	if (main_file_name == "")
 	{
 		zipfile.close();
@@ -541,15 +531,13 @@ string ODFOOXMLParser::plainText(XmlParseMode mode, FormattingStyle& options) co
 		zipfile.setBuffer(extended_impl->m_buffer, extended_impl->m_buffer_size);
 	else
 		zipfile.setArchiveFile(extended_impl->m_file_name);
-	if (&getLogStream() != &std::cerr)
-		zipfile.setLogStream(getLogStream());
 	if (!zipfile.open())
 	{
 		if (extended_impl->fileIsEncrypted())
 			throw EncryptedFileException("File is encrypted according to the Microsoft Office Document Cryptography Specification. Exact file format cannot be determined");
 		throw Exception("Error opening file " + extended_impl->m_file_name + " as zip file");
 	}
-	string main_file_name = locate_main_file(zipfile, getLogStream());
+	string main_file_name = locate_main_file(zipfile);
 	if (main_file_name == "")
 		throw Exception("Could not locate main file inside zipped file (" + extended_impl->m_file_name + ")");
 	//according to the ODF specification, we must skip blank nodes. Otherwise output may be messed up.
@@ -559,7 +547,7 @@ string ODFOOXMLParser::plainText(XmlParseMode mode, FormattingStyle& options) co
 		setXmlOptions(XML_PARSE_NOBLANKS);
 	}
 	if (zipfile.exists("word/comments.xml") && !extended_impl->readOOXMLComments(zipfile, mode, options))
-		getLogStream() << "Error parsing comments.\n";
+		doctotext_log(error) << "Error parsing comments.";
 	if (zipfile.exists("styles.xml"))
 		extended_impl->readStyles(zipfile, mode, options);
 	string content;
@@ -592,8 +580,7 @@ string ODFOOXMLParser::plainText(XmlParseMode mode, FormattingStyle& options) co
 		if (!zipfile.read("xl/sharedStrings.xml", &content))
 		{
 			//file may not exist, but this is not reason to report an error.
-			if (verbose())
-				getLogStream() << "xl/sharedStrings.xml does not exist" << endl;
+			doctotext_log(debug) << "xl/sharedStrings.xml does not exist";
 		}
 		else
 		{
@@ -669,22 +656,20 @@ string ODFOOXMLParser::plainText(XmlParseMode mode, FormattingStyle& options) co
 			throw;
 		}
 	}
-	decodeSpecialLinkBlocks(text, getInnerLinks(), getLogStream());
+	decodeSpecialLinkBlocks(text, getInnerLinks());
 	zipfile.close();
 	return text;
 }
 
 Metadata ODFOOXMLParser::metaData() const
 {
-	getLogOutStream() << "Extracting metadata.\n";
+	doctotext_log(debug) << "Extracting metadata.";
 	Metadata meta;
 	DocToTextUnzip zipfile;
 	if (extended_impl->m_buffer)
 		zipfile.setBuffer(extended_impl->m_buffer, extended_impl->m_buffer_size);
 	else
 		zipfile.setArchiveFile(extended_impl->m_file_name);
-	if (&getLogStream() != &std::cerr)
-		zipfile.setLogStream(getLogStream());
 	if (!zipfile.open())
 	{
 		if (extended_impl->fileIsEncrypted())
@@ -812,8 +797,7 @@ Metadata ODFOOXMLParser::metaData() const
 void
 ODFOOXMLParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using ODF/OOXML parser.\n";
+	doctotext_log(debug) << "Using ODF/OOXML parser.";
 	auto formatting_style = getFormattingStyle();
 	plainText(XmlParseMode::PARSE_XML, formatting_style);
 

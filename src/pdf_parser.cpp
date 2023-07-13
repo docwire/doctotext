@@ -38,6 +38,7 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include "log.h"
 #include <map>
 #include "metadata.h"
 #include "misc.h"
@@ -6783,8 +6784,6 @@ struct PDFParser::Implementation
 	};
 
 	std::istream* m_data_stream;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	PDFContent m_pdf_content;
 
   PDFContent::FontsByNames parseFonts(const PoDoFo::PdfPage& page)
@@ -7164,7 +7163,7 @@ struct PDFParser::Implementation
 				FileStream file_stream(cmap_to_cid_file_name);
 				if (!file_stream.open())
 				{
-					*m_log_stream << "Cannot open file: " << cmap_to_cid_file_name;
+					doctotext_log(warning) << "Cannot open file: " << cmap_to_cid_file_name;
 					return;
 				}
 				std::vector<char> buffer(file_stream.size() + 2);
@@ -7315,7 +7314,7 @@ struct PDFParser::Implementation
 			#endif
 			if (!file_stream.open())
 			{
-				*m_log_stream << "Cannot open file: " << cid_to_unicode_cmap;
+				doctotext_log(warning) << "Cannot open file: " << cid_to_unicode_cmap;
 				return;
 			}
 			std::vector<char> buffer(file_stream.size() + 2);
@@ -7777,7 +7776,7 @@ struct PDFParser::Implementation
 								}
 								else
 								{
-								 	*m_log_stream << "Unknown font" << std::endl;
+								 	doctotext_log(warning) << "Unknown font";
 								}
 
 								break;
@@ -8009,8 +8008,6 @@ PDFParser::PDFParser(const std::string& file_name, const std::shared_ptr<doctote
 		impl = new Implementation(this);
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new std::ifstream(file_name, std::ifstream::in | std::ifstream::binary);
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -8033,8 +8030,6 @@ PDFParser::PDFParser(const char* buffer, size_t size, const std::shared_ptr<doct
 		impl = new Implementation(this);
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new std::istrstream(buffer, size);
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -8058,16 +8053,6 @@ PDFParser::~PDFParser()
 	}
 }
 
-void PDFParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void PDFParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 bool PDFParser::isPDF()
 {
 	char buffer[5];
@@ -8075,12 +8060,12 @@ bool PDFParser::isPDF()
 	impl->resetDataStream();
 	if (!impl->m_data_stream->read(buffer, 5))
 	{
-		*impl->m_log_stream << "Cannot read from data stream.\n";
+		doctotext_log(error) << "Cannot read from data stream.";
 		return false;
 	}
 	if (memcmp(buffer, pdf, 5) != 0)
 	{
-		*impl->m_log_stream << "No PDF header found\n";
+		doctotext_log(warning) << "No PDF header found";
 		return false;
 	}
 	return true;
@@ -8103,10 +8088,7 @@ Metadata PDFParser::metaData()
 void
 PDFParser::parse() const
 {
-	if(impl->m_verbose_logging)
-	{
-		*impl->m_log_stream << "Using PDF parser.\n";
-	}
+	doctotext_log(debug) << "Using PDF parser.";
 	impl->loadDocument();
 	impl->parseText();
 }

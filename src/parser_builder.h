@@ -67,18 +67,6 @@ public:
   virtual std::unique_ptr<Parser> build(const char *buffer, size_t size) const = 0;
 
   /**
-   * @brief Sets log stream for parser.
-   * @param log_stream
-   */
-  virtual ParserBuilder &withLogStream(std::ostream *log_stream) = 0;
-
-  /**
-   * @brief Turns on/off verbose logging.
-   * @param verbose
-   */
-  virtual ParserBuilder &withVerboseLogging(bool verbose) = 0;
-
-  /**
    * @brief Adds callback function.
    * @param callbacks
    */

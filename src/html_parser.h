@@ -63,8 +63,6 @@ class HTMLParser : public doctotext::Parser
 		explicit HTMLParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		HTMLParser(const char* buffer, size_t size, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		~HTMLParser();
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isHTML();
 		Metadata metaData() const;
 		///turns off charset decoding. It may be useful, if we want to decode data ourself (EML parser is an example).

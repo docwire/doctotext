@@ -53,22 +53,9 @@ extern "C"
 #include <boost/signals2.hpp>
 
 #include "formatting_style.h"
+#include "log.h"
 #include "misc.h"
 #include "pst_parser.h"
-
-struct verboseLog
-{
-	std::ostream& m_log_stream = std::cerr;
-	bool m_verbose_logging;
-};
-
-template <typename T>
-verboseLog& operator<<(verboseLog& out, T&& val)
-{
-	if (out.m_verbose_logging)
-		out.m_log_stream << std::forward<T>(val);
-	return out;
-}
 
 inline std::string toString(const uint8_t* text)
 {
@@ -296,7 +283,7 @@ class Message
 	}
 
 	std::vector<RawAttachment>
-	getAttachments(verboseLog& log)
+	getAttachments()
 	{
 		int items;
 		pffError err;
@@ -310,19 +297,19 @@ class Message
 			pffItem item;
 			if (libpff_message_get_attachment(_messageHandle, i, &item, &err) != 1)
 			{
-				log << "Message Get attachments failed: " << '\n';
+				doctotext_log(debug) << "Message Get attachments failed: ";
 				continue;
 			}
 			size64_t size;
 			if (libpff_attachment_get_data_size(item, &size, &err) == -1)
 			{
-				log << "Get data size failed\n";
+				doctotext_log(debug) << "Get data size failed";
 				continue;
 			}
 			std::unique_ptr<uint8_t[]> datablob(new uint8_t[size + 1]);
 			if (libpff_attachment_data_read_buffer(item, datablob.get(), size, &err) == -1)
 			{
-				log << "Data Read failed\n";
+				doctotext_log(debug) << "Data Read failed";
 				continue;
 			}
       std::string attachment_name = getAttachmentName(item).get();
@@ -388,15 +375,8 @@ class Folder
 
 struct PSTParser::Implementation
 {
-	Implementation(std::string file_name, std::ostream& log_stream, bool verbose, PSTParser* owner)
-		: m_file_name(std::move(file_name)), log{log_stream, verbose},
-      m_owner(owner)
-	{
-		std::filesystem::path path = m_file_name;
-		m_file_name = path.make_preferred().string();
-	}
 	Implementation(std::string file_name, PSTParser* owner)
-		: m_file_name(std::move(file_name)), log{std::cerr, true},
+		: m_file_name(std::move(file_name)),
       m_owner(owner)
 	{
 		std::filesystem::path path = m_file_name;
@@ -428,12 +408,9 @@ struct PSTParser::Implementation
   std::string m_file_name;
   const char* m_buffer;
   size_t m_size;
-  bool m_verbose_logging;
-  std::ostream *m_log_stream = &std::cerr;
   std::istream *m_data_stream;
   boost::signals2::signal<void(doctotext::Info &info)> m_on_new_node_signal;
   std::shared_ptr<doctotext::ParserManager> parserManager;
-	mutable verboseLog log;
   const unsigned int MAILS_LIMIT = 50;
 
   private:
@@ -493,7 +470,7 @@ void PSTParser::Implementation::parse_internal(const Folder& root, int deep, uns
       m_owner->sendTag(StandardTag::TAG_CLOSE_MAIL_BODY);
     }
 
-		auto attachments = message.getAttachments(log);
+		auto attachments = message.getAttachments();
     for (auto &attachment : attachments)
     {
       std::string extension = attachment.m_name.substr(attachment.m_name.find_last_of(".") + 1);
@@ -517,7 +494,7 @@ void PSTParser::Implementation::parse() const
 	pffError error{nullptr};
 	if (libpff_file_initialize(&file, &error) != 1)
 	{
-		log << "Unable to initialize file.\n";
+		doctotext_log(doctotext::error) << "Unable to initialize file.";
 		return;
 	}
 
@@ -531,14 +508,14 @@ void PSTParser::Implementation::parse() const
   }
   catch (std::filesystem::filesystem_error &error)
   {
-    (*m_log_stream) << error.what() << std::endl;
+    doctotext_log(doctotext::error) << error.what();
   }
 
   if (!m_file_name.empty())
   {
     if (libpff_file_open(file, m_file_name.c_str(), LIBPFF_OPEN_READ, &error) != 1)
     {
-      log << "Unable to open file.\n";
+      doctotext_log(doctotext::error) << "Unable to open file.";
       libpff_file_free(&file, NULL);
       return;
     }
@@ -572,8 +549,7 @@ void PSTParser::Implementation::parse() const
 void
 PSTParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using PST parser.\n";
+	doctotext_log(debug) << "Using PST parser.";
   impl->parse();
 }
 
@@ -582,8 +558,6 @@ PSTParser::withParameters(const doctotext::ParserParameters &parameters)
 {
   Parser::withParameters(parameters);
   impl->addParameter(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
   return *this;
 }
 
@@ -627,7 +601,7 @@ PSTParser::isPST() const
   }
   catch (std::filesystem::filesystem_error &error)
   {
-    (*impl->m_log_stream) << error.what() << std::endl;
+    doctotext_log(doctotext::error) << error.what();
   }
 
   auto filename_length = filename.size();
@@ -651,16 +625,4 @@ PSTParser::isPST() const
     return false;
   }
   return true;
-}
-
-void
-PSTParser::setVerboseLogging(bool verbose)
-{
-  impl->m_verbose_logging = verbose;
-}
-
-void
-PSTParser::setLogStream(std::ostream* log_stream)
-{
-  impl->m_log_stream = log_stream;
 }

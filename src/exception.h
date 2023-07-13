@@ -62,7 +62,7 @@ namespace doctotext
 		\code
 		catch (Exception& ex)
 		{
-			std::cerr << ex.getBacktrace();
+			doctotext_log(error) << ex.getBacktrace();
 		}
 		\endcode
 	**/

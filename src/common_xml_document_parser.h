@@ -42,10 +42,10 @@
 
 namespace doctotext
 {
+	class DocToTextUnzip;
 	class Metadata;
+	class XmlStream;
 }
-class XmlStream;
-class DocToTextUnzip;
 
 using namespace doctotext;
 
@@ -145,8 +145,6 @@ class CommonXMLDocumentParser
 		///gets options which has been set for XmlStream object. (xmlParserOption from libxml2)
 		int getXmlOptions() const;
 
-		bool verbose() const;
-		std::ostream& getLogStream() const;
 		bool manageXmlParser() const;
 
 		///disables modifying text data inside method onUnregisteredCommand
@@ -166,8 +164,6 @@ class CommonXMLDocumentParser
 	public:
 		CommonXMLDocumentParser();
 		virtual ~CommonXMLDocumentParser();
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		void setManageXmlParser(bool manage);
 		void getLinks(std::vector<Link>& links);
 		virtual std::string plainText(XmlParseMode mode, FormattingStyle& options) const = 0; // todo https://github.com/docwire/doctotext/issues/91

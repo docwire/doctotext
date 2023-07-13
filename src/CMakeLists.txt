@@ -7,6 +7,7 @@ set(DOCTOTEXT_SOURCES
         exception.cpp
         doctotext_link.cpp
         list_style.cpp
+        log.cpp
         metadata.cpp
         misc.cpp
         variant.cpp
@@ -247,6 +248,7 @@ configure_file(${CMAKE_SOURCE_DIR}/src/transformer_func.h ${CMAKE_BINARY_DIR}/tr
 configure_file(${CMAKE_SOURCE_DIR}/src/parsing_chain.h ${CMAKE_BINARY_DIR}/parsing_chain.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/simple_extractor.h ${CMAKE_BINARY_DIR}/simple_extractor.h COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/src/defines.h ${CMAKE_BINARY_DIR}/defines.h COPYONLY)
+configure_file(${CMAKE_SOURCE_DIR}/src/log.h ${CMAKE_BINARY_DIR}/log.h COPYONLY)
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR APPLE)

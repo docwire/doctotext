@@ -35,6 +35,9 @@
 
 #include <string>
 
+namespace doctotext
+{
+
 class XmlStream
 {
 	private:
@@ -56,6 +59,6 @@ class XmlStream
 		std::string attribute(const std::string& attr_name);
 };
 
+}; // namespace doctotext
+
 #endif
-
-

@@ -34,6 +34,8 @@
 
 #include "parser.h"
 
+#include "log.h"
+
 struct doctotext::Parser::Implementation
 {
   doctotext::Info
@@ -69,8 +71,7 @@ doctotext::Parser::Parser(const std::shared_ptr<doctotext::ParserManager> &inPar
 doctotext::Info
 doctotext::Parser::sendTag(const std::string& tag_name, const std::string& text, const std::map<std::string, std::any> &attributes) const
 {
-  if (isVerboseLogging())
-    getLogOutStream() << "Sending tag \"" << tag_name << "\" with text [" << text << "]" << std::endl;
+  doctotext_log(debug) << "Sending tag \"" << tag_name << "\" with text [" << text << "]";
   return base_impl->sendTag(tag_name, text, attributes);
 }
 
@@ -103,26 +104,4 @@ doctotext::Parser::getFormattingStyle() const
     return *formatting_style;
   }
   return FormattingStyle();
-}
-
-std::ostream& 
-doctotext::Parser::getLogOutStream() const
-{
-  auto log_stream = m_parameters.getParameterValue<std::ostream*>("log_stream");
-  if (log_stream)
-  {
-    return *(*log_stream);
-  }
-  return std::cerr;
-}
-
-bool 
-doctotext::Parser::isVerboseLogging() const
-{
-  auto verbose_logging = m_parameters.getParameterValue<bool>("verbose_logging");
-  if (verbose_logging)
-  {
-    return *verbose_logging;
-  }
-  return false;
 }

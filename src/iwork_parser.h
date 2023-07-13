@@ -56,10 +56,7 @@ class IWorkParser
 		IWorkParser(const char* buffer, size_t size);
 		~IWorkParser();
     static std::vector<std::string> getExtensions() {return {"pages", "key", "numbers"};}
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isIWork();
-		bool isVerboseLogging();
 		void getLinks(std::vector<Link>& links);
 		std::string plainText(const FormattingStyle& formatting);
 		Metadata metaData();

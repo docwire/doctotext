@@ -38,11 +38,11 @@
 #include <string>
 #include <vector>
 
+class ThreadSafeOLEStorage;
+
 namespace doctotext
 {
 	struct FormattingStyle;
-}
-class ThreadSafeOLEStorage;
 
 using namespace doctotext;
 
@@ -57,13 +57,13 @@ class XLSParser
 		XLSParser(const char* buffer, size_t size);
 		~XLSParser();
     static std::vector<std::string> getExtensions() {return {"xls"};}
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isXLS();
 		void getLinks(std::vector<Link>& links);
 		std::string plainText(const FormattingStyle& formatting);
 		std::string plainText(ThreadSafeOLEStorage& storage, const FormattingStyle& formatting);
 		Metadata metaData();
 };
+
+} // namespace doctotext
 
 #endif

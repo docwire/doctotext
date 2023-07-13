@@ -32,7 +32,7 @@
 
 #include "doc_parser.h"
 #include <iostream>
-
+#include "log.h"
 #include "misc.h"
 
 //Dirty hack, be we now what we are doing and this is internal library.
@@ -125,19 +125,19 @@ struct Comment
 	std::string author;
 };
 
-static bool cp_to_stream_offset(const wvWare::Parser* parser, std::ostream& log_stream, U32 cp, U32& stream_offset, bool* unicode_detected = NULL)
+static bool cp_to_stream_offset(const wvWare::Parser* parser, U32 cp, U32& stream_offset, bool* unicode_detected = NULL)
 {
 	const Parser9x* parser9 = dynamic_cast<const Parser9x*>(parser);
 	if (parser9 == NULL)
 	{
-		log_stream << "This is not a 9x parser.\n";
+		doctotext_log(warning) << "This is not a 9x parser.";
 		return false;
 	}
 	U32 piece = 0;
 	U32 offset = cp;
 	if (parser9->m_plcfpcd == NULL)
 	{
-		log_stream << "No pieces table found.\n";
+		doctotext_log(warning) << "No pieces table found.";
 		return false;
 	}
 	// Copied from wv2 code.
@@ -147,28 +147,28 @@ static bool cp_to_stream_offset(const wvWare::Parser* parser, std::ostream& log_
 		break;
 		offset -= it.currentRun();
 	}
-	log_stream << "Piece: " << piece << ", offset: " << offset << "\n";
+	doctotext_log(debug) << "Piece: " << piece << ", offset: " << offset;
 	PLCFIterator<Word97::PCD> it2(parser9->m_plcfpcd->at( piece ) );
 	if (!it2.current())
 	{
-		log_stream << "Specified piece not found.\n";
+		doctotext_log(warning) << "Specified piece not found.";
 		return false;
 	}
 	U32 fc = it2.current()->fc;   // Start FC of this piece
-        log_stream << "Piece start at FC " << fc << ".\n";
+	doctotext_log(debug) << "Piece start at FC " << fc << ".";
         bool unicode;
         parser9->realFC(fc, unicode);
-	log_stream << "After unicode transition piece start at FC " << fc << ".\n";
+	doctotext_log(debug) << "After unicode transition piece start at FC " << fc << ".";
 	if (offset != 0 )
             fc += unicode ? offset * 2 : offset;
-	log_stream << "Stream offset is " << fc << ".\n";
+	doctotext_log(debug) << "Stream offset is " << fc << ".";
 	stream_offset = fc;
 	if (unicode_detected != NULL)
 		*unicode_detected = unicode;
 	return true;
 }
 
-static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_stream, std::vector<Comment>& comments)
+static bool parse_comments(const wvWare::Parser* parser, std::vector<Comment>& comments)
 {
 	AbstractOLEStreamReader* reader = NULL;
 	AbstractOLEStreamReader* table_reader = NULL;
@@ -176,59 +176,59 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 	{
 		if (parser->fib().lcbPlcfandTxt == 0)
 		{
-			log_stream << "No annotations.\n";
+			doctotext_log(debug) << "No annotations.";
 			return true;
 		}
 
 		U32 atn_part_cp = parser->fib().ccpText + parser->fib().ccpFtn + parser->fib().ccpHdd + parser->fib().ccpMcr;
-		log_stream << "Annotations part at CP " << atn_part_cp << ".\n";
+		doctotext_log(debug) << "Annotations part at CP " << atn_part_cp << ".";
 		reader = parser->m_storage->createStreamReader("WordDocument");
 		if (!reader)
 		{
-			log_stream << "Error opening WordDocument stream.\n";
+			doctotext_log(error) << "Error opening WordDocument stream.";
 			return false;
 		}
 		const Parser9x* parser9 = dynamic_cast<const Parser9x*>(parser);
 		table_reader = parser->m_storage->createStreamReader(parser9->tableStream());
 		if (!table_reader)
 		{
-			log_stream << "Error opening table stream..\n";
+			doctotext_log(error) << "Error opening table stream.";
 			delete reader;
 			return false;
 		}
 
 		U32 annotation_txts_offset = parser->fib().fcPlcfandTxt;
-		log_stream << "Annotation texts table at offset " << annotation_txts_offset << ".\n";
+		doctotext_log(debug) << "Annotation texts table at offset " << annotation_txts_offset << ".";
 		table_reader->seek(annotation_txts_offset);
 		U32 annotation_begin_cp = table_reader->readU32();
 		std::vector<std::string> annotations;
 		for (;;)
 		{
 			U32 annotation_end_cp = table_reader->readU32();
-			log_stream << "Annotation text position (CP) from " << annotation_begin_cp << " to " << annotation_end_cp << ".\n";
+			doctotext_log(debug) << "Annotation text position (CP) from " << annotation_begin_cp << " to " << annotation_end_cp << ".";
 			U32 stream_begin_offset;
 			bool unicode;
-			if (!cp_to_stream_offset(parser, log_stream, atn_part_cp + annotation_begin_cp, stream_begin_offset, &unicode))
+			if (!cp_to_stream_offset(parser, atn_part_cp + annotation_begin_cp, stream_begin_offset, &unicode))
 			{
-				log_stream << "Converting annotation start position to stream offset failed.\n";
+				doctotext_log(error) << "Converting annotation start position to stream offset failed.";
 				delete reader;
 				delete table_reader;
 				return false;
 			}
 			U32 stream_end_offset;
-			if (!cp_to_stream_offset(parser, log_stream, atn_part_cp + annotation_end_cp, stream_end_offset))
+			if (!cp_to_stream_offset(parser, atn_part_cp + annotation_end_cp, stream_end_offset))
 			{
-				log_stream << "Converting annotation end position to stream offset failed.\n";
+				doctotext_log(error) << "Converting annotation end position to stream offset failed.";
 				delete reader;
 				delete table_reader;
 				return false;
 			}
-			log_stream << "Annotation text stream position from " << stream_begin_offset << " to " << stream_end_offset << ".\n";
+			doctotext_log(debug) << "Annotation text stream position from " << stream_begin_offset << " to " << stream_end_offset << ".";
 			reader->seek(stream_begin_offset);
 			U8 annotation_mark = reader->readU8();
 			if (!annotation_mark == 0x05)
 			{
-				log_stream << "Incorrect annotation mark.\n";
+				doctotext_log(error) << "Incorrect annotation mark.";
 				delete reader;
 				delete table_reader;
 				return false;
@@ -236,7 +236,7 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 			std::string annotation;
 			while (reader->tell() < stream_end_offset - 1)
 			{
-				log_stream << "Stream pos " << reader->tell() << "\n";
+				doctotext_log(debug) << "Stream pos " << reader->tell();
 				// warning TODO: Unicode support in comments
 				if (unicode)
 					reader->seek(1, SEEK_CUR); // skip unicode byte
@@ -249,7 +249,7 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 						annotation += ch;
 				}
 			}
-			log_stream << "Annotation text: \"" << annotation << "\"\n";
+			doctotext_log(debug) << "Annotation text: \"" << annotation << "\"";
 			annotations.push_back(annotation);
 			if (annotation_end_cp >= parser->fib().ccpAtn - 1)
 				break;
@@ -258,7 +258,7 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 
 		U32 annotation_owners_offset = parser->fib().fcGrpXstAtnOwners;
 		U32 annotation_owners_len = parser->fib().lcbGrpXstAtnOwners;
-		log_stream << "Annotation owners table at offset " << annotation_owners_offset << " has length " << annotation_owners_len << ".\n";
+		doctotext_log(debug) << "Annotation owners table at offset " << annotation_owners_offset << " has length " << annotation_owners_len << ".";
 		table_reader->seek(annotation_owners_offset);
 		std::vector<std::string> owners;
 		for (int total_len = 0; total_len < annotation_owners_len;)
@@ -268,7 +268,7 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 			std::string owner;
 			if (len * 2 + total_len > annotation_owners_len)
 			{
-				log_stream << "Something is wrong with XST table. Authors of comments could not be parsed.\n";
+				doctotext_log(warning) << "Something is wrong with XST table. Authors of comments could not be parsed.";
 				owners.clear();
 				break;
 			}
@@ -278,30 +278,30 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 				owner += (char)ch;
 				total_len += 2;
 			}
-			log_stream << "Owner \"" << owner << "\" found.\n";
+			doctotext_log(debug) << "Owner \"" << owner << "\" found.";
 			owners.push_back(owner);
 		}
 
 		U32 annotation_refs_offset = parser->fib().fcPlcfandRef;
-		log_stream << "Annotation refs table at offset " << annotation_refs_offset << ".\n";
+		doctotext_log(debug) << "Annotation refs table at offset " << annotation_refs_offset << ".";
 		table_reader->seek(annotation_refs_offset);
 		for (int i = 0;; i++)
 		{
 			U32 annotation_ref_cp = table_reader->readU32();
 			if (annotation_ref_cp >= parser->fib().ccpText)
 				break;
-			log_stream << "Annotation " << i << " references text at CP " << annotation_ref_cp << ".\n";
+			doctotext_log(debug) << "Annotation " << i << " references text at CP " << annotation_ref_cp << ".";
 			U32 stream_offset;
-			if (!cp_to_stream_offset(parser, log_stream, annotation_ref_cp, stream_offset))
+			if (!cp_to_stream_offset(parser, annotation_ref_cp, stream_offset))
 			{
-				log_stream << "Converting annotation reference position to stream offset failed.\n";
+				doctotext_log(error) << "Converting annotation reference position to stream offset failed.";
 				delete reader;
 				delete table_reader;
 				return false;
 			}
 			if (i < annotations.size())
 			{
-				log_stream << "Annotation " << i << " references text at stream offset " << stream_offset << ".\n";
+				doctotext_log(debug) << "Annotation " << i << " references text at stream offset " << stream_offset << ".";
 				Comment c;
 				c.fc = stream_offset;
 				c.text = annotations[i];
@@ -314,7 +314,7 @@ static bool parse_comments(const wvWare::Parser* parser, std::ostream& log_strea
 			Word97::ATRD atrd(table_reader);
 			if (atrd.ibst < owners.size())
 			{
-				log_stream << "Annotation owner is \"" << owners[atrd.ibst] << "\", index " << atrd.ibst << ".\n";
+				doctotext_log(debug) << "Annotation owner is \"" << owners[atrd.ibst] << "\", index " << atrd.ibst << ".";
 				comments[i].author = owners[atrd.ibst];
 			}
 		}
@@ -348,22 +348,18 @@ class DocToTextTextHandler : public TextHandler
 		UString* Text;
 		CurrentState* m_curr_state;
 		FormattingStyle m_formatting;
-		bool m_verbose_logging;
-		std::ostream* m_log_stream;
 		bool m_comments_parsed;
 		std::vector<Comment> m_comments;
 		U32 m_prev_par_fc;
 
 	public:
 		DocToTextTextHandler(const wvWare::Parser* parser, UString* text, CurrentState* curr_state,
-				const FormattingStyle& formatting, bool verbose_logging, std::ostream& log_stream)
+				const FormattingStyle& formatting)
 			: m_parser(parser), m_curr_state(curr_state), m_comments_parsed(false), m_prev_par_fc(0)
 		{
 			Text = text;
 			m_curr_state = curr_state;
 			m_formatting = formatting;
-			m_verbose_logging = verbose_logging;
-			m_log_stream = &log_stream;
 		}
 
 		void sectionStart(SharedPtr<const Word97::SEP> sep)
@@ -391,9 +387,9 @@ class DocToTextTextHandler : public TextHandler
 				}
 				else
 				{
-					if (!parse_comments(m_parser, *m_log_stream, m_comments))
+					if (!parse_comments(m_parser, m_comments))
 					{
-						*m_log_stream << "Parsing comments failed.\n";
+						doctotext_log(error) << "Parsing comments failed.";
 						m_comments.clear();
 					}
 					m_comments_parsed = true;
@@ -462,10 +458,9 @@ class DocToTextTextHandler : public TextHandler
 			switch (fld->flt)
 			{
 				case FLT_EMBED:
-					if (m_verbose_logging)
-						*m_log_stream << "Embedded OLE object reference found.\n";
+					doctotext_log(debug) << "Embedded OLE object reference found.";
 					if (m_curr_state->obj_texts_iter == m_curr_state->obj_texts.end())
-						*m_log_stream << "Unexpected OLE object reference.\n";
+						doctotext_log(warning) << "Unexpected OLE object reference.";
 					else
 					{
 						(*Text) += utf8_to_ustring(*m_curr_state->obj_texts_iter);
@@ -616,32 +611,7 @@ struct DOCParser::Implementation
 	const char* m_buffer;
 	size_t m_buffer_size;
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
-	std::streambuf* m_cerr_buf_backup;
   boost::signals2::signal<void(doctotext::Info &info)> m_on_new_node_signal;
-
-	void modifyCerr()
-	{
-		if (m_verbose_logging)
-		{
-			if (m_log_stream != &std::cerr)
-				m_cerr_buf_backup = std::cerr.rdbuf(m_log_stream->rdbuf());
-		}
-		else
-			std::cerr.setstate(std::ios::failbit);
-	}
-
-	void restoreCerr()
-	{
-		if (m_verbose_logging)
-		{
-			if (m_log_stream != &std::cerr)
-				std::cerr.rdbuf(m_cerr_buf_backup);
-		}
-		else
-			std::cerr.clear();
-	}
 };
 
 DOCParser::DOCParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager)
@@ -652,8 +622,6 @@ DOCParser::DOCParser(const std::string& file_name, const std::shared_ptr<doctote
 	{
 		impl = new Implementation();
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = NULL;
 		impl->m_buffer_size = 0;
 	}
@@ -673,8 +641,6 @@ DOCParser::DOCParser(const char *buffer, size_t size, const std::shared_ptr<doct
 	{
 		impl = new Implementation();
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = buffer;
 		impl->m_buffer_size = size;
 	}
@@ -691,16 +657,6 @@ DOCParser::~DOCParser()
 	delete impl;
 }
 
-void DOCParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void DOCParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 bool DOCParser::isDOC()
 {
 	FILE* f = NULL;
@@ -710,7 +666,7 @@ bool DOCParser::isDOC()
 		throw Exception("Error opening file " + impl->m_file_name);
 	if (f)
 		fclose(f);
-	impl->modifyCerr();
+	cerr_log_redirection cerr_redirection(doctotext_current_source_location());
 	ThreadSafeOLEStorage* storage = NULL;
 	//storage will be deleted inside parser from wv2 library
 	if (impl->m_buffer)
@@ -720,10 +676,10 @@ bool DOCParser::isDOC()
 	pthread_mutex_lock(&parser_factory_mutex_1);
 	SharedPtr<wvWare::Parser> parser = ParserFactory::createParser(storage);
 	pthread_mutex_unlock(&parser_factory_mutex_1);
-	impl->restoreCerr();
+	cerr_redirection.restore();
 	if (!parser || !parser->isOk())
 	{
-		*impl->m_log_stream << "Creating parser failed.\n";
+		doctotext_log(error) << "Creating parser failed.";
 		return false;
 	}
 	return true;
@@ -737,8 +693,7 @@ void DOCParser::getLinks(std::vector<doctotext::Link>& links)
 std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) const
 {
 	CurrentState curr_state;
-	if (impl->m_verbose_logging)
-		*impl->m_log_stream << "Opening " << impl->m_file_name << " as OLE file to parse all embedded objects in supported formats.\n";
+	doctotext_log(debug) << "Opening " << impl->m_file_name << " as OLE file to parse all embedded objects in supported formats.";
 	//Pointer to storage will be passed to parser from wv2 library. This pointer will be deleted, so allocate storage on heap
 	ThreadSafeOLEStorage* storage = NULL;
 	try
@@ -751,15 +706,13 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 			throw Exception("Error opening " + impl->m_file_name + " as OLE file");
 		if (storage->enterDirectory("ObjectPool"))
 		{
-			if (impl->m_verbose_logging)
-				*impl->m_log_stream << "ObjectPool found, embedded OLE objects probably exist.\n";
+			doctotext_log(debug) << "ObjectPool found, embedded OLE objects probably exist.";
 			std::vector<std::string> obj_list;
 			if (!storage->getStreamsAndStoragesList(obj_list))
 				throw Exception("Error while loading list of streams and storages in ObjectPool directory. OLE Storage has reported an error: " + storage->getLastError());
 			for (size_t i = 0; i < obj_list.size(); ++i)
 			{
-				if (impl->m_verbose_logging)
-					*impl->m_log_stream << "OLE object entry found: " << obj_list[i] << "\n";
+				doctotext_log(debug) << "OLE object entry found: " << obj_list[i];
 				std::string obj_text;
 				std::string currect_dir = obj_list[i];
 				if (storage->enterDirectory(obj_list[i]))
@@ -769,8 +722,8 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 						throw Exception("Error while loading list of streams and storages in " + currect_dir + " directory. OLE Storage has reported an error: " + storage->getLastError());
 					if (find(obj_list.begin(), obj_list.end(), "Workbook") != obj_list.end())
 					{
-						*impl->m_log_stream << "Embedded MS Excel workbook detected.\n";
-						*impl->m_log_stream << "Using XLS parser.\n";
+						doctotext_log(debug) << "Embedded MS Excel workbook detected.";
+						doctotext_log(debug) << "Using XLS parser.";
 						try
 						{
 							XLSParser xls("");
@@ -778,7 +731,7 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 						}
 						catch (Exception& ex)
 						{
-							*impl->m_log_stream << "Error while parsing embedded MS Excel workbook:\n" << ex.getBacktrace();
+							doctotext_log(error) << "Error while parsing embedded MS Excel workbook:\n" << ex.getBacktrace();
 						}
 					}
 					storage->leaveDirectory();
@@ -788,12 +741,10 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 		}
 		else
 		{
-			if (impl->m_verbose_logging)
-				*impl->m_log_stream << "No ObjectPool found, embedded OLE objects probably do not exist.\n";
+			doctotext_log(debug) << "No ObjectPool found, embedded OLE objects probably do not exist.";
 		}
 		storage->leaveDirectory();
 		curr_state.obj_texts_iter = curr_state.obj_texts.begin();
-		impl->modifyCerr();
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -807,10 +758,11 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 			delete storage;
 		throw;
 	}
+	cerr_log_redirection cerr_redirection(doctotext_current_source_location());
 	pthread_mutex_lock(&parser_factory_mutex_2);
 	SharedPtr<wvWare::Parser> parser = ParserFactory::createParser(storage);
 	pthread_mutex_unlock(&parser_factory_mutex_2);
-	impl->restoreCerr();
+	cerr_redirection.restore();
 	if (!parser || !parser->isOk())
 	{
 		if (parser && parser->fib().fEncrypted)
@@ -818,16 +770,15 @@ std::string DOCParser::plainText(const doctotext::FormattingStyle& formatting) c
 		throw Exception("Creating parser failed");
 	}
 	UString text;
-	DocToTextTextHandler text_handler(parser, &text, &curr_state, formatting,
-		impl->m_verbose_logging, *impl->m_log_stream);
+	DocToTextTextHandler text_handler(parser, &text, &curr_state, formatting);
 	parser->setTextHandler(&text_handler);
 	DocToTextTableHandler table_handler(&text, &curr_state.table);
 	parser->setTableHandler(&table_handler);
 	DocToTextSubDocumentHandler sub_document_handler(&curr_state.header_footer);
 	parser->setSubDocumentHandler(&sub_document_handler);
-	impl->modifyCerr();
+	cerr_redirection.redirect();
 	bool res = parser->parse();
-	impl->restoreCerr();
+	cerr_redirection.restore();
 	if (!res)
 		throw Exception("Parsing document failed");
 	text_handler.endOfDocument();
@@ -853,7 +804,7 @@ doctotext::Metadata DOCParser::metaData() const
 			storage = new ThreadSafeOLEStorage(impl->m_buffer, impl->m_buffer_size);
 		else
 			storage = new ThreadSafeOLEStorage(impl->m_file_name);
-		parse_oshared_summary_info(*storage, *impl->m_log_stream, meta);
+		parse_oshared_summary_info(*storage, meta);
 		delete storage;
 		storage = NULL;
 		return meta;
@@ -876,16 +827,13 @@ doctotext::Parser&
 DOCParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
 	return *this;
 }
 
 void
 DOCParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using DOC parser.\n";
+	doctotext_log(debug) << "Using DOC parser.";
   doctotext::FormattingStyle formating;
   plainText(formating);
 

@@ -19,6 +19,7 @@ Unreleased:
     * Minimum table row height (empty rows and cells) in plain text writer set to 1 line to better restore document layout
     * Caching build environment docker images in GitHub Packages
     * MSVC docker image scripts updated
+    * Log mechanism refactored
 
 Version 5.0.9:
     * Replace README file with more detailed README.md prepared for public GitHub repository

@@ -36,6 +36,7 @@
 #include <boost/dll/import.hpp>
 #include <iostream>
 
+#include "log.h"
 #include "misc.h"
 #include "parser_manager.h"
 #include "parser_provider.h"
@@ -80,7 +81,7 @@ public:
             }
             catch (const boost::system::system_error &e)
             {
-              std::cerr << "Error loading plugin: " << e.what() << std::endl;
+              doctotext_log(error) << "Error loading plugin: " << e.what();
             }
           }
       }

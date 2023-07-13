@@ -30,36 +30,81 @@
 /*  It is supplied in the hope that it will be useful.                                                                                             */
 /***************************************************************************************************************************************************/
 
-#ifndef DOCTOTEXT_PPT_PARSER_H
-#define DOCTOTEXT_PPT_PARSER_H
+#ifndef DOCTOTEXT_LOG_H
+#define DOCTOTEXT_LOG_H
 
-#include "doctotext_link.h"
+#include "defines.h"
+#include <functional>
+#include <memory>
 #include <string>
-#include <vector>
 
 namespace doctotext
 {
-	struct FormattingStyle;
-	struct Metadata;
+
+enum severity_level
+{
+	debug,
+	info,
+	warning,
+	error
+};
+
+DllExport std::ostream& operator<<(std::ostream& stream, severity_level severity);
+
+struct DllExport source_location
+{
+	std::string file_name;
+	unsigned int line;
+	std::string function_name;
+};
+
+extern DllExport severity_level log_verbosity;
+
+extern DllExport std::ostream* log_stream;
+
+extern DllExport std::function<std::unique_ptr<std::ostream>(severity_level severity, source_location location)> create_log_record_stream;
+
+inline void current_function_helper()
+{
+#if defined(__GNUC__)
+#define doctotext_current_function __PRETTY_FUNCTION__
+#elif defined(__FUNCSIG__)
+#define doctotext_current_function __FUNCSIG__
+#else
+#define doctotext_current_fuction __func__
+#endif
 }
 
-using namespace doctotext;
-
-class PPTParser
+inline bool log_verbosity_includes(severity_level severity)
 {
-	private:
-		struct Implementation;
-		Implementation* impl;
+	return severity >= log_verbosity;
+}
 
-	public:
-		PPTParser(const std::string& file_name);
-		PPTParser(const char* buffer, size_t size);
-		~PPTParser();
-    static std::vector<std::string> getExtensions() {return {"ppt", "pps"};}
-		bool isPPT();
-		void getLinks(std::vector<Link>& links);
-		std::string plainText(const FormattingStyle& formatting);
-		Metadata metaData();
+#define doctotext_current_source_location() \
+	doctotext::source_location{__FILE__, __LINE__, doctotext_current_function}
+
+#define doctotext_log(severity) \
+	if (!doctotext::log_verbosity_includes(severity)) \
+	{ \
+	} \
+	else \
+		(*doctotext::create_log_record_stream(severity, doctotext_current_source_location()))
+
+class DllExport cerr_log_redirection
+{
+public:
+	cerr_log_redirection(source_location location);
+	~cerr_log_redirection();
+	void redirect();
+	void restore();
+
+private:
+	bool m_redirected;
+	std::unique_ptr<std::ostream> m_log_record_stream;
+	std::streambuf* m_cerr_buf_backup;
+	source_location m_location;
 };
+
+} // namespace doctotext
 
 #endif

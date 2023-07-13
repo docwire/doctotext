@@ -34,6 +34,7 @@
 
 #include "exception.h"
 #include <iostream>
+#include "log.h"
 #include <map>
 #include <math.h>
 #include "metadata.h"
@@ -76,8 +77,6 @@ enum RecordType
 struct PPTParser::Implementation
 {
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	const char* m_buffer;
 	size_t m_buffer_size;
 
@@ -98,14 +97,13 @@ struct PPTParser::Implementation
 			case RT_CSTRING:
 			case RT_TEXT_CHARS_ATOM: 
 			{
-				if (m_verbose_logging)
-					*m_log_stream << "RT_TextCharsAtom or RT_CString\n";
+				doctotext_log(debug) << "RT_TextCharsAtom or RT_CString";
 				std::vector<unsigned char> buf(2);
 				unsigned long text_len = rec_len / 2;
 				if (text_len * 2 > reader.size() - reader.tell())
 				{
 					text_len = (reader.size() - reader.tell()) / 2;
-					*m_log_stream << "Warning: Read past EOF\n";
+					doctotext_log(warning) << "Warning: Read past EOF";
 				}
 				for (int i = 0; i < text_len; i++)
 				{
@@ -127,65 +125,57 @@ struct PPTParser::Implementation
 				break;
 			}
 			case RT_DOCUMENT:
-				if (m_verbose_logging)
-					*m_log_stream << "RT_Document\n";
+				doctotext_log(debug) << "RT_Document";
 				break;
 			case RT_DRAWING:
-				if (m_verbose_logging)
-					*m_log_stream << "RT_Drawing\n";
+				doctotext_log(debug) << "RT_Drawing";
 				break;
 			case RT_END_DOCUMENT_ATOM:
 			{
-				if (m_verbose_logging)
-					*m_log_stream << "RT_DocumentEnd\n";
+				doctotext_log(debug) << "RT_DocumentEnd";
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
 				{
-					*m_log_stream << "Warning: Read past EOF\n";
+					doctotext_log(warning) << "Warning: Read past EOF";
 					len = reader.size() - reader.tell();
 				}
 				reader.seek(len, SEEK_CUR);
 				break;
 			}
 			case RT_LIST:
-				if (m_verbose_logging)
-					*m_log_stream << "RT_List\n";
+				doctotext_log(debug) << "RT_List";
 				break;
 			case RT_MAIN_MASTER:
 			{
-				if (m_verbose_logging)
-					*m_log_stream << "RT_MainMaster\n";
+				doctotext_log(debug) << "RT_MainMaster";
 				// warning TODO: Make extracting text from main master slide configurable
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
 				{
-					*m_log_stream << "Warning: Read past EOF\n";
+					doctotext_log(warning) << "Warning: Read past EOF";
 					len = reader.size() - reader.tell();
 				}
 				reader.seek(len, SEEK_CUR);
 				break;
 			}
 			case RT_SLIDE:
-				if (m_verbose_logging)
-					*m_log_stream << "RT_Slide\n";
+				doctotext_log(debug) << "RT_Slide";
 				break;
 			case RT_SLIDE_BASE:
 				break;
 			case RT_SLIDE_LIST_WITH_TEXT:
-				if (m_verbose_logging)
-					*m_log_stream << "RT_SlideListWithText\n";
+				doctotext_log(debug) << "RT_SlideListWithText";
 				break;
 			case RT_TEXT_BYTES_ATOM:
 			{
-				if (m_verbose_logging)
-					*m_log_stream << "RT_TextBytesAtom\n";
+				doctotext_log(debug) << "RT_TextBytesAtom";
 				std::vector<unsigned char> buf(2);
 				unsigned long text_len = rec_len;
 				buf[0] = buf[1] = 0;
 				if (text_len > reader.size() - reader.tell())
 				{
 					text_len = reader.size() - reader.tell();
-					*m_log_stream << "Warning: Read past EOF\n";
+					doctotext_log(warning) << "Warning: Read past EOF";
 				}
 				for (int i = 0; i < text_len; i++)
 				{
@@ -200,26 +190,22 @@ struct PPTParser::Implementation
 				break;
 			}
 			case OFFICE_ART_CLIENT_TEXTBOX:
-				if (m_verbose_logging)
-					*m_log_stream << "OfficeArtClientTextbox\n";
+				doctotext_log(debug) << "OfficeArtClientTextbox";
 				break;
 			case OFFICE_ART_DG_CONTAINER:
-				if (m_verbose_logging)
-					*m_log_stream << "OfficeArtDgContainer\n";
+				doctotext_log(debug) << "OfficeArtDgContainer";
 				break;
 			case OFFICE_ART_SPGR_CONTAINER:
-				if (m_verbose_logging)
-					*m_log_stream << "OfficeArtSpgrContainer\n";
+				doctotext_log(debug) << "OfficeArtSpgrContainer";
 				break;
 			case OFFICE_ART_SP_CONTAINER:
-				if (m_verbose_logging)
-					*m_log_stream << "OfficeArtSpContainer\n";
+				doctotext_log(debug) << "OfficeArtSpContainer";
 				break;
 			default:
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
 				{
-					*m_log_stream << "Warning: Read past EOF\n";
+					doctotext_log(warning) << "Warning: Read past EOF";
 					len = reader.size() - reader.tell();
 				}
 				reader.seek(len, SEEK_CUR);
@@ -240,7 +226,7 @@ struct PPTParser::Implementation
 			throw Exception("Error reading Text_Content stream");
 		text = std::string(content.begin(), content.end());
 		std::string codepage;
-		if (get_codepage_from_document_summary_info(storage, *m_log_stream, codepage))
+		if (get_codepage_from_document_summary_info(storage, codepage))
 		{
 			TextConverter tc(codepage);
 			text = ustring_to_string(tc.convert(text));
@@ -269,14 +255,14 @@ struct PPTParser::Implementation
 			}
 			int rec_type = getU16LittleEndian(rec.begin() + 2);
 			U32 rec_len = getU32LittleEndian(rec.begin() + 4);
-			if (m_verbose_logging)
+			if (log_verbosity_includes(debug))
 			{
 				while (!container_ends.empty() && pos+rec_len-1 > container_ends.top())
 					container_ends.pop();
 				std::string indend;
 				for (int i = 0; i < container_ends.size(); i++)
 					indend += "\t";
-				*m_log_stream << indend << "record=0x" << std::hex << rec_type << ", begin=0x" << pos << ", end=0x" << pos + rec_len - 1 << "\n";
+				doctotext_log(debug) << indend << "record=0x" << std::hex << rec_type << ", begin=0x" << pos << ", end=0x" << pos + rec_len - 1;
 				container_ends.push(pos + rec_len - 1);
 			}
 			try
@@ -316,8 +302,6 @@ PPTParser::PPTParser(const std::string& file_name)
 	{
 		impl = new Implementation();
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = NULL;
 		impl->m_buffer_size = 0;
 	}
@@ -336,8 +320,6 @@ PPTParser::PPTParser(const char *buffer, size_t size)
 	{
 		impl = new Implementation();
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = buffer;
 		impl->m_buffer_size = size;
 	}
@@ -352,16 +334,6 @@ PPTParser::PPTParser(const char *buffer, size_t size)
 PPTParser::~PPTParser()
 {
 	delete impl;
-}
-
-void PPTParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void PPTParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
 }
 
 bool PPTParser::isPPT()
@@ -406,9 +378,7 @@ void PPTParser::getLinks(std::vector<Link>& links)
 
 std::string PPTParser::plainText(const FormattingStyle& formatting)
 {	
-	if (impl->m_verbose_logging){
-		*impl->m_log_stream << "Using PPT parser.\n";
-	}
+	doctotext_log(debug) << "Using PPT parser.";
 
 	ThreadSafeOLEStorage* storage = NULL;
 	ThreadSafeOLEStreamReader* reader = NULL;
@@ -489,14 +459,14 @@ Metadata PPTParser::metaData()
 			storage = new ThreadSafeOLEStorage(impl->m_buffer, impl->m_buffer_size);
 		else
 			storage = new ThreadSafeOLEStorage(impl->m_file_name);
-		parse_oshared_summary_info(*storage, *impl->m_log_stream, meta);
+		parse_oshared_summary_info(*storage, meta);
 		// If page count not found use slide count as page count
 		if (meta.pageCount() == -1)
 		{
 			int slide_count = 150;
 			try
 			{
-				parse_oshared_document_summary_info(*storage, *impl->m_log_stream, slide_count);
+				parse_oshared_document_summary_info(*storage, slide_count);
 				if(slide_count!=-1){
 					meta.setPageCount(slide_count);
 					meta.setPageCountType(Metadata::EXTRACTED);
@@ -508,7 +478,7 @@ Metadata PPTParser::metaData()
 			catch (Exception& ex)
 			{
 				meta.setPageCountType(Metadata::NONE);
-				*impl->m_log_stream << ex.getBacktrace() << "\n";
+				doctotext_log(error) << ex.getBacktrace();
 			}
 		}
 		else{

@@ -63,8 +63,6 @@ class EMLParser : public Parser
 		void parse() const override;
 		static std::vector<std::string> getExtensions() {return {"eml"};}
 
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isEML() const;
 		void getLinks(std::vector<Link>& links);
 		void getAttachments(std::vector<Attachment>& attachments);

@@ -61,8 +61,6 @@ class RTFParser : public doctotext::Parser
 		RTFParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		RTFParser(const char* buffer, size_t size, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		~RTFParser();
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isRTF() const;
 		void getLinks(std::vector<Link>& links);
 		std::string plainText() const;

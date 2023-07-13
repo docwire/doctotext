@@ -67,8 +67,6 @@ public:
   Parser &withParameters(const ParserParameters &parameters) override
   {
     doctotext::Parser::withParameters(parameters);
-    m_parser.setVerboseLogging(isVerboseLogging());
-    m_parser.setLogStream(getLogOutStream());
     return *this;
   }
 
@@ -124,9 +122,7 @@ class DllExport ParserBuilderWrapper : public doctotext::ParserBuilder
 {
 public:
   ParserBuilderWrapper()
-  : m_parser_creator(ParserCreator()),
-    m_log_stream(&std::cerr),
-    m_verbose(false)
+  : m_parser_creator(ParserCreator())
   {
 
   }
@@ -155,21 +151,6 @@ public:
     return parser;
   }
 
-
-  doctotext::ParserBuilder&
-  withLogStream(std::ostream* log_stream) override
-  {
-    m_log_stream = log_stream;
-    return *this;
-  }
-
-  doctotext::ParserBuilder&
-  withVerboseLogging(bool verbose) override
-  {
-    m_verbose = verbose;
-    return *this;
-  }
-
   doctotext::ParserBuilder&
   withOnNewNodeCallbacks(const std::vector<doctotext::NewNodeCallback> &callbacks) override
   {
@@ -193,8 +174,6 @@ public:
 
 private:
   ParserCreator m_parser_creator;
-  std::ostream *m_log_stream;
-  bool m_verbose;
   std::vector<doctotext::NewNodeCallback> m_callbacks;
   std::shared_ptr<doctotext::ParserManager> m_parser_manager;
   ParserParameters m_parameters;

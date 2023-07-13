@@ -35,6 +35,7 @@
 #include "data_stream.h"
 #include "exception.h"
 #include <iostream>
+#include "log.h"
 #include <map>
 #include "metadata.h"
 #include "misc.h"
@@ -53,8 +54,6 @@ using namespace wvWare;
 struct RTFParser::Implementation
 {
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	DataStream* m_data_stream;
   boost::signals2::signal<void(doctotext::Info &info)> m_on_new_node_signal;
 };
@@ -67,8 +66,6 @@ RTFParser::RTFParser(const std::string& file_name, const std::shared_ptr<doctote
 	{
 		impl = new Implementation();
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new FileStream(file_name);
 	}
@@ -92,8 +89,6 @@ RTFParser::RTFParser(const char* buffer, size_t size, const std::shared_ptr<doct
 	{
 		impl = new Implementation();
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new BufferStream(buffer, size);
 	}
@@ -119,16 +114,6 @@ RTFParser::~RTFParser()
 	}
 }
 
-void RTFParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void RTFParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 bool RTFParser::isRTF() const
 {
 	if (!impl->m_data_stream->open())
@@ -137,7 +122,7 @@ bool RTFParser::isRTF() const
 	if (!impl->m_data_stream->read(buf, sizeof(char), 5))
 	{
 		impl->m_data_stream->close();
-		*impl->m_log_stream << "Error reading signature from file " << impl->m_file_name << ".\n";
+		doctotext_log(error) << "Error reading signature from file " << impl->m_file_name << ".";
 		return false;
 	}
 	impl->m_data_stream->close();
@@ -318,7 +303,7 @@ static RTFCommand commandNameToEnum(char* name)
 	return RTF_UNKNOWN;
 }
 
-static bool parseCommand(DataStream& data_stream, RTFCommand& cmd, long int& arg, bool verbose, std::ostream& log_stream)
+static bool parseCommand(DataStream& data_stream, RTFCommand& cmd, long int& arg)
 {
 	char name[RTFNAMEMAXLEN + 1];
 
@@ -361,8 +346,7 @@ static bool parseCommand(DataStream& data_stream, RTFCommand& cmd, long int& arg
 			arg = ch;
 		}
 	}
-	if (verbose)
-		log_stream << "[cmd: " << name << " (" << arg << ")]\n";
+	doctotext_log(debug) << "[cmd: " << name << " (" << arg << ")]";
 	return true;
 }
 
@@ -425,7 +409,7 @@ static std::string format_comment(const std::string& author, const std::string& 
 }
 
 static void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserState& state, RTFCommand cmd, long int arg,
-	TextConverter*& converter, bool verbose, std::ostream& log_stream)
+	TextConverter*& converter)
 {
 	switch (cmd)
 	{
@@ -494,7 +478,7 @@ static void execCommand(DataStream& data_stream, UString& text, int& skip, RTFPa
 				{
 					RTFCommand tmp_cmd;
 					long int tmp_arg;
-					parseCommand(data_stream, tmp_cmd, tmp_arg, verbose, log_stream);
+					parseCommand(data_stream, tmp_cmd, tmp_arg);
 				}
 			}
 			break;
@@ -530,31 +514,27 @@ static void execCommand(DataStream& data_stream, UString& text, int& skip, RTFPa
 			text += UString("\n");
 			break;
 		case RTF_CODEPAGE:
-			if (verbose)
-				log_stream << "Initializing converter for codepage " << arg << "\n";
+			doctotext_log(debug) << "Initializing converter for codepage " << arg;
 			converter = new TextConverter(codepage_to_encoding(arg));
 			if (converter->isOk())
 			{
-				if (verbose)
-					log_stream << "Converter initialized.\n";
+				doctotext_log(debug) << "Converter initialized.";
 			}
 			else
 			{
-				log_stream << "Converter initialization ERROR!\n";
+				doctotext_log(error) << "Converter initialization ERROR!";
 				delete converter;
 				converter = NULL;
 			}
 			break;
 		case RTF_FONT_CHARSET:
-			if (verbose)
-				log_stream << "Setting win charset " << arg << " for font number " << state.last_font_ref_num << "\n";
+			doctotext_log(debug) << "Setting win charset " << arg << " for font number " << state.last_font_ref_num;
 			state.font_table[state.last_font_ref_num] = win_charset_to_encoding(arg);
 			break;
 		case RTF_F:
 			if (state.font_table.find(arg) != state.font_table.end())
 			{
-				if (verbose)
-					log_stream << "Font number " << arg << " referenced. Setting converter for encoding " << state.font_table[arg] << "\n";
+				doctotext_log(debug) << "Font number " << arg << " referenced. Setting converter for encoding " << state.font_table[arg];
 				if (converter != NULL)
 					converter->setFromCode(state.font_table[arg]);
 			}
@@ -618,11 +598,11 @@ std::string RTFParser::plainText() const
 				{
 					RTFCommand cmd;
 					long int arg;
-					if (!parseCommand(*impl->m_data_stream, cmd, arg, impl->m_verbose_logging, *impl->m_log_stream))
+					if (!parseCommand(*impl->m_data_stream, cmd, arg))
 						break;
 					UString fragment_text;
 					pthread_mutex_lock(&converter_mutex);
-					execCommand(*impl->m_data_stream, fragment_text, skip, state, cmd, arg, converter, impl->m_verbose_logging, *impl->m_log_stream);
+					execCommand(*impl->m_data_stream, fragment_text, skip, state, cmd, arg, converter);
 					pthread_mutex_unlock(&converter_mutex);
 					if (state.groups.top().in_annotation)
 						state.annotation_text += fragment_text;
@@ -722,7 +702,7 @@ Metadata RTFParser::metaData() const
 		throw Exception("File " + impl->m_file_name + " is not rtf");
 	
 	Metadata meta;
-	*impl->m_log_stream << "Extracting metadata.\n";
+	doctotext_log(debug) << "Extracting metadata.";
 	if (!impl->m_data_stream->open())
 		throw Exception("Error opening file " + impl->m_file_name);
 	size_t stream_size = impl->m_data_stream->size();
@@ -797,16 +777,13 @@ Parser&
 RTFParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
 	return *this;
 }
 
 void
 RTFParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using RTF parser.\n";
+	doctotext_log(debug) << "Using RTF parser.";
   Info info(StandardTag::TAG_TEXT, plainText());
   impl->m_on_new_node_signal(info);
 

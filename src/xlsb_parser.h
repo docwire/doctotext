@@ -56,8 +56,6 @@ class XLSBParser
 		XLSBParser(const char* buffer, size_t size);
 		~XLSBParser();
     static std::vector<std::string> getExtensions() {return {"xlsb"};}
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isXLSB();
 		void getLinks(std::vector<Link>& links);
 		std::string plainText(const FormattingStyle& formatting);

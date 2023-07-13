@@ -44,6 +44,7 @@
 #include "input.h"
 #include "importer.h"
 #include "exporter.h"
+#include "log.h"
 #include "transformer_func.h"
 #include "parsing_chain.h"
 #include "simple_extractor.h"
@@ -157,11 +158,11 @@ DOCTOTEXT_CALL doctotext_parser_parse(DocToTextParser* parser)
   }
   catch (doctotext::Exception &e)
   {
-    std::cerr << e.what() << std::endl;
+    doctotext_log(error) << e.what();
   }
   catch(...)
   {
-    std::cerr << "Cannot parse file: Unknown error" << std::endl;
+    doctotext_log(error) << "Cannot parse file: Unknown error";
   }
 }
 

@@ -54,8 +54,6 @@ class TXTParser : public doctotext::Parser
 		TXTParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		TXTParser(const char* buffer, size_t size, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
 		~TXTParser();
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		std::string plainText() const;
 };
 

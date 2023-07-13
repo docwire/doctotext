@@ -39,6 +39,7 @@
 #include "exception.h"
 #include "htmlcxx/html/CharsetConverter.h"
 #include <iostream>
+#include "log.h"
 #include "metadata.h"
 #include "plain_text_writer.h"
 #include <pthread.h>
@@ -74,8 +75,6 @@ struct EMLParser::Implementation
   EMLParser* m_owner;
 	bool m_error;
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	std::istream* m_data_stream;
 	std::vector<Link> m_links;
 	std::vector<doctotext::Attachment> m_attachments;
@@ -114,7 +113,7 @@ struct EMLParser::Implementation
 		catch (htmlcxx::CharsetConverter::Exception& ex)
 		{
 			pthread_mutex_unlock(&charset_converter_mutex);
-			*m_log_stream << "Warning: Cant convert text to UTF-8 from " + charset;
+			doctotext_log(warning) << "Warning: Cant convert text to UTF-8 from " + charset;
 		}
 	}
 
@@ -126,15 +125,13 @@ struct EMLParser::Implementation
 		mimetic::istring enc_algo = cte.mechanism();
 		if (enc_algo == ContentTransferEncoding::base64)
 		{
-			if (m_verbose_logging)
-				*m_log_stream << "Using base64 decoding\n";
+			doctotext_log(debug) << "Using base64 decoding";
 			Base64::Decoder b64;
 			decode(me.body().begin(), me.body().end(), b64, oi);
 		}
 		else if (enc_algo == ContentTransferEncoding::quoted_printable)
 		{
-			if (m_verbose_logging)
-				*m_log_stream << "Using quoted_printable decoding\n";
+			doctotext_log(debug) << "Using quoted_printable decoding";
 			QP::Decoder qp;
 			decode(me.body().begin(), me.body().end(), qp, oi);
 		}
@@ -142,13 +139,12 @@ struct EMLParser::Implementation
 			enc_algo == ContentTransferEncoding::sevenbit ||
 			enc_algo == ContentTransferEncoding::binary)
 		{
-			if (m_verbose_logging)
-				*m_log_stream << "Using eightbit/sevenbit/binary decoding\n";
+			doctotext_log(debug) << "Using eightbit/sevenbit/binary decoding";
 			copy(me.body().begin(), me.body().end(), oi);
 		}
 		else
 		{
-			*m_log_stream << "Unknown encoding: " + enc_algo + "\n";
+			doctotext_log(debug) << "Unknown encoding: " + enc_algo;
 			copy(me.body().begin(), me.body().end(), oi);
 		}
 		os.flush();
@@ -229,7 +225,7 @@ struct EMLParser::Implementation
 				}
 				catch (Exception& ex)
 				{
-					*m_log_stream << "Warning: Error while parsing html content\n";
+					doctotext_log(warning) << "Warning: Error while parsing html content";
 				}
 			}
 			else
@@ -245,7 +241,7 @@ struct EMLParser::Implementation
 					}
 					catch (Exception& ex)
 					{
-						*m_log_stream << "Warning: Error while parsing text content\n";
+						doctotext_log(warning) << "Warning: Error while parsing text content";
 					}
 				}
 			}
@@ -325,8 +321,6 @@ EMLParser::EMLParser(const std::string& file_name, const std::shared_ptr<doctote
 		impl = new Implementation(inParserManager, this);
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new std::ifstream(file_name.c_str());
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -349,8 +343,6 @@ EMLParser::EMLParser(const char* buffer, size_t size, const std::shared_ptr<doct
 		impl = new Implementation(inParserManager, this);
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new std::stringstream(std::string(buffer, size));
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -372,16 +364,6 @@ EMLParser::~EMLParser()
 			delete impl->m_data_stream;
 		delete impl;
 	}
-}
-
-void EMLParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void EMLParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
 }
 
 bool EMLParser::internal_is_eml() const
@@ -480,7 +462,6 @@ Metadata EMLParser::metaData()
 void
 EMLParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using EML parser.\n";
+	doctotext_log(debug) << "Using EML parser.";
   plainText(getFormattingStyle());
 }

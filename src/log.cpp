@@ -30,36 +30,103 @@
 /*  It is supplied in the hope that it will be useful.                                                                                             */
 /***************************************************************************************************************************************************/
 
-#ifndef DOCTOTEXT_PPT_PARSER_H
-#define DOCTOTEXT_PPT_PARSER_H
+#include "log.h"
 
-#include "doctotext_link.h"
-#include <string>
-#include <vector>
+#include <chrono>
+#include <ctime>
+#include <filesystem>
+#include <iomanip>
+#include <iostream>
+#include <pthread.h>
+#include <sstream>
 
 namespace doctotext
 {
-	struct FormattingStyle;
-	struct Metadata;
+
+std::ostream& operator<<(std::ostream& stream, severity_level severity)
+{
+	switch (severity)
+	{
+		case debug: stream << std::string("DEBUG"); break;
+		case info: stream << std::string("INFO"); break;
+		case warning: stream << std::string("WARNING"); break;
+		case error: stream << std::string("ERROR"); break;
+	}
+	return stream;
 }
 
-using namespace doctotext;
+severity_level log_verbosity = info;
 
-class PPTParser
+std::ostream* log_stream = &std::clog;
+
+class default_log_record_stream : public std::ostringstream
 {
-	private:
-		struct Implementation;
-		Implementation* impl;
+public:
+	default_log_record_stream(severity_level severity, source_location location)
+		: m_severity(severity), m_location(location)
+	{
+	}
 
-	public:
-		PPTParser(const std::string& file_name);
-		PPTParser(const char* buffer, size_t size);
-		~PPTParser();
-    static std::vector<std::string> getExtensions() {return {"ppt", "pps"};}
-		bool isPPT();
-		void getLinks(std::vector<Link>& links);
-		std::string plainText(const FormattingStyle& formatting);
-		Metadata metaData();
+	~default_log_record_stream()
+	{
+		std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+		*log_stream << std::put_time(std::localtime(&t), "%FT%T%z") <<
+			" " << m_severity <<
+			" " << std::filesystem::path(m_location.file_name).filename() <<
+			":" << m_location.line <<
+			" " << m_location.function_name <<
+			" " << str() << std::endl;
+	}
+
+private:
+	severity_level m_severity;
+	source_location m_location;
 };
 
-#endif
+std::function<std::unique_ptr<std::ostream>(severity_level severity, source_location location)> create_log_record_stream =
+[](severity_level severity, source_location location) -> std::unique_ptr<std::ostream>
+{
+	return std::make_unique<default_log_record_stream>(severity, location);
+};
+
+static pthread_mutex_t cerr_log_redirection_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+cerr_log_redirection::cerr_log_redirection(source_location location)
+	: m_redirected(false), m_cerr_buf_backup(nullptr), m_location(location)
+{
+	redirect();
+}
+
+cerr_log_redirection::~cerr_log_redirection()
+{
+	if (m_redirected)
+		restore();
+}
+
+void cerr_log_redirection::redirect()
+{
+	if (log_verbosity_includes(debug))
+	{
+		m_log_record_stream = create_log_record_stream(debug, m_location);
+		pthread_mutex_lock(&cerr_log_redirection_mutex);
+		m_cerr_buf_backup = std::cerr.rdbuf(m_log_record_stream->rdbuf());
+	}
+	else
+		std::cerr.setstate(std::ios::failbit);
+	m_redirected = true;
+}
+
+void cerr_log_redirection::restore()
+{
+	if (m_cerr_buf_backup != nullptr)
+	{
+		std::cerr.rdbuf(m_cerr_buf_backup);
+		pthread_mutex_unlock(&cerr_log_redirection_mutex);
+		m_cerr_buf_backup = nullptr;
+	}
+	else
+		std::cerr.clear();
+	m_redirected = false;
+}
+
+} // namespace doctotext

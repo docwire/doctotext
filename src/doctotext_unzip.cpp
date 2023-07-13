@@ -33,6 +33,7 @@
 #include "doctotext_unzip.h"
 
 #include <iostream>
+#include "log.h"
 #include <map>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +41,9 @@
 #include <vector>
 #include "unzip.h"
 #include "zlib.h"
+
+namespace doctotext
+{
 
 const int CASESENSITIVITY = 1;
 
@@ -124,7 +128,6 @@ static int buffer_error(voidpf opaque, voidpf stream)
 struct DocToTextUnzip::Implementation
 {
 	std::string ArchiveFileName;
-	std::ostream* m_log_stream;
 	unzFile ArchiveFile;
 	std::map<std::string, unz_file_pos> m_directory;
 	bool m_opened_for_chunks;
@@ -140,7 +143,6 @@ DocToTextUnzip::DocToTextUnzip()
 	try
 	{
 		Impl = new Implementation();
-		Impl->m_log_stream = &std::cerr;
 		Impl->m_opened_for_chunks = false;
 		Impl->m_from_memory_buffer = false;
 		Impl->m_buffer = NULL;
@@ -163,7 +165,6 @@ DocToTextUnzip::DocToTextUnzip(const std::string& archive_file_name)
 	{
 		Impl = new Implementation();
 		Impl->ArchiveFileName = archive_file_name;
-		Impl->m_log_stream = &std::cerr;
 		Impl->m_opened_for_chunks = false;
 		Impl->m_from_memory_buffer = false;
 		Impl->m_buffer = NULL;
@@ -186,7 +187,6 @@ DocToTextUnzip::DocToTextUnzip(const char *buffer, size_t size)
 	{
 		Impl = new Implementation();
 		Impl->ArchiveFileName = "Memory buffer";
-		Impl->m_log_stream = &std::cerr;
 		Impl->m_opened_for_chunks = false;
 		Impl->m_from_memory_buffer = true;
 		Impl->m_buffer = buffer;
@@ -222,11 +222,6 @@ DocToTextUnzip::~DocToTextUnzip()
 	if (Impl->m_zipped_buffer != NULL)
 		delete Impl->m_zipped_buffer;
 	delete Impl;
-}
-
-void DocToTextUnzip::setLogStream(std::ostream& log_stream)
-{
-	Impl->m_log_stream = &log_stream;
 }
 
 static std::string unzip_command;
@@ -287,21 +282,21 @@ bool DocToTextUnzip::read(const std::string& file_name, std::string* contents, i
 		size_t d_pos = cmd.find("%d");
 		if (d_pos == std::string::npos)
 		{
-			*Impl->m_log_stream << "Unzip command must contain %d symbol.\n";
+			doctotext_log(error) << "Unzip command must contain %d symbol.";
 			return false;
 		}
 		cmd.replace(d_pos, 2, temp_dir);
 		size_t a_pos = cmd.find("%a");
 		if (a_pos == std::string::npos)
 		{
-			*Impl->m_log_stream << "Unzip command must contain %a symbol.\n";
+			doctotext_log(error) << "Unzip command must contain %a symbol.";
 			return false;
 		}
 		cmd.replace(a_pos, 2, Impl->ArchiveFileName);
 		size_t f_pos = cmd.find("%f");
 		if (f_pos == std::string::npos)
 		{
-			*Impl->m_log_stream << "Unzip command must contain %f symbol.\n";
+			doctotext_log(error) << "Unzip command must contain %f symbol.";
 			return false;
 		}
 		#ifdef WIN32
@@ -319,13 +314,13 @@ bool DocToTextUnzip::read(const std::string& file_name, std::string* contents, i
 		#else
 			const std::string remove_cmd = "rm -rf " + temp_dir;
 		#endif
-		*Impl->m_log_stream << "Executing " << cmd << "\n";
+		doctotext_log(debug) << "Executing " << cmd;
 		if (system(cmd.c_str()) < 0)
 			return false;
 		FILE* f = fopen((temp_dir + "/" + file_name).c_str(), "r");
 		if (f == NULL)
 		{
-			*Impl->m_log_stream << "Executing " << remove_cmd << "\n";
+			doctotext_log(debug) << "Executing " << remove_cmd;
 			system(remove_cmd.c_str());
 			return false;
 		}
@@ -349,13 +344,13 @@ bool DocToTextUnzip::read(const std::string& file_name, std::string* contents, i
 			{
 				fclose(f);
 				f = NULL;
-				*Impl->m_log_stream << "Executing " << remove_cmd << "\n";
+				doctotext_log(debug) << "Executing " << remove_cmd;
 				system(remove_cmd.c_str());
 				return false;
 			}
 			fclose(f);
 			f = NULL;
-			*Impl->m_log_stream << "Executing " << remove_cmd << "\n";
+			doctotext_log(debug) << "Executing " << remove_cmd;
 			if (system(remove_cmd.c_str()) != 0)
 				return false;
 		}
@@ -506,3 +501,5 @@ bool DocToTextUnzip::loadDirectory()
 	}
 	return true;
 }
+
+}; // namespace doctotext

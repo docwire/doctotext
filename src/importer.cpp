@@ -36,6 +36,7 @@
 
 #include "exception.h"
 #include "importer.h"
+#include "log.h"
 
 using namespace doctotext;
 
@@ -72,17 +73,6 @@ public:
     return true;
   }
 
-	std::ostream&
-	getLogOutStream() const
-	{
-		auto log_stream = m_parameters.getParameterValue<std::ostream*>("log_stream");
-		if (log_stream)
-		{
-			return *(*log_stream);
-		}
-		return std::cerr;
-	}
-
   bool
   isReadable(const std::filesystem::path& p) const
   {
@@ -108,7 +98,6 @@ public:
     }
     Info new_doc(StandardTag::TAG_DOCUMENT);
     m_owner.emit(new_doc);
-    auto log_stream = &getLogOutStream();
     std::shared_ptr<ParserBuilder> builder;
     std::vector<char> buffer;
     std::istream* input_stream = nullptr;
@@ -163,7 +152,7 @@ public:
         }
         catch (doctotext::Exception &ex)
         {
-          (*log_stream) << "It is possible that wrong parser was selected. Trying different parsers." << std::endl;
+          doctotext_log(doctotext::info) << "It is possible that wrong parser was selected. Trying different parsers." << std::endl;
           std::vector<char> buffer;
           load_file_to_buffer(file_path, buffer);
           auto second_builder = m_parser_manager->findParserByData(buffer);

@@ -44,6 +44,7 @@
 #include <algorithm>
 #include "pthread.h"
 #include "input.h"
+#include "log.h"
 
 void dots_to_underscores(std::string& str)
 {
@@ -489,10 +490,10 @@ TEST_P(MultithreadedTest, SimpleExtractorTests)
       void *status;
       int res = pthread_join(threads[i], &status);
       if (!res)
-        std::cerr << "Thread " << i << " finished successfully." << std::endl;
+        doctotext_log(doctotext::info) << "Thread " << i << " finished successfully.";
       else
       {
-        std::cerr << "Thread " << i << " finished with error." << std::endl;
+        doctotext_log(doctotext::info) << "Thread " << i << " finished with error.";
         all_ok = false;
       }
     }

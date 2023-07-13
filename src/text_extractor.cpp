@@ -36,6 +36,7 @@
 #include <fstream>
 #include "exception.h"
 #include "formatting_style.h"
+#include "log.h"
 #include "standard_filter.h"
 #include "simple_extractor.h"
 #include "version.h"
@@ -225,7 +226,7 @@ int main(int argc, char* argv[])
     }
     if (arg.find("--verbose", 0) != -1)
     {
-      parameters += doctotext::ParserParameters("verbose_logging", true);
+      doctotext::log_verbosity = doctotext::debug;
     }
     if (arg.find("--log-file", 0) != -1)
     {
@@ -247,7 +248,7 @@ int main(int argc, char* argv[])
   if (log_file_name)
   {
     log_stream = std::make_unique<std::ofstream>(*log_file_name);
-    parameters += doctotext::ParserParameters("log_stream", log_stream.get());
+    doctotext::log_stream = log_stream.get();
   }
 
   extractor.addParameters(parameters);

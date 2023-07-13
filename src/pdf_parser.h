@@ -60,8 +60,6 @@ class PDFParser : public Parser
     void parse() const override;
     static std::vector<std::string> getExtensions() {return {"pdf"};}
 
-		void setVerboseLogging(bool verbose);
-		void setLogStream(std::ostream& log_stream);
 		bool isPDF();
 		void getLinks(std::vector<Link>& links);
 		Metadata metaData();

@@ -63,8 +63,6 @@ public:
     static std::vector <std::string> getExtensions() {return {"tiff", "jpeg", "bmp", "png", "pnm", "jfif", "jpg", "webp"};}
     Parser& withParameters(const doctotext::ParserParameters &parameters) override;
 
-    void setVerboseLogging(bool verbose);
-    void setLogStream(std::ostream& log_stream);
     void setTessdataPrefix(const std::string& tessdata_prefix);
     bool isOCR() const;
     std::string plainText(const doctotext::FormattingStyle& formatting, const doctotext::Language lang) const;

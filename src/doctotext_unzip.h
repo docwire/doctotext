@@ -36,6 +36,9 @@
 #include <string>
 #include "defines.h"
 
+namespace doctotext
+{
+
 class DocToTextUnzip
 {
 	private:
@@ -49,7 +52,6 @@ class DocToTextUnzip
 		void setArchiveFile(const std::string& archive_file_name);
 		void setBuffer(const char* buffer, size_t size);
 		~DocToTextUnzip();
-		void setLogStream(std::ostream& log_stream);
 		DllExport static void setUnzipCommand(const std::string& command);
 		bool open();
 		void close();
@@ -64,5 +66,7 @@ class DocToTextUnzip
 		**/
 		bool loadDirectory();
 };
+
+}; // namespace doctotext
 
 #endif

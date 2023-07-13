@@ -38,6 +38,7 @@
 #include "htmlcxx/html/CharsetConverter.h"
 #include <boost/signals2.hpp>
 #include <iostream>
+#include "log.h"
 #include <string.h>
 
 using namespace doctotext;
@@ -45,8 +46,6 @@ using namespace doctotext;
 struct TXTParser::Implementation
 {
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	DataStream* m_data_stream;
   boost::signals2::signal<void(doctotext::Info &info)> m_on_new_node_signal;
 };
@@ -60,8 +59,6 @@ TXTParser::TXTParser(const std::string& file_name, const std::shared_ptr<doctote
 		impl = new Implementation;
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new FileStream(file_name);
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -84,8 +81,6 @@ TXTParser::TXTParser(const char* buffer, size_t size, const std::shared_ptr<doct
 		impl = new Implementation;
 		impl->m_data_stream = NULL;
 		impl->m_data_stream = new BufferStream(buffer, size);
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -107,16 +102,6 @@ TXTParser::~TXTParser()
 			delete impl->m_data_stream;
 		delete impl;
 	}
-}
-
-void TXTParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void TXTParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
 }
 
 namespace
@@ -177,7 +162,7 @@ std::string TXTParser::plainText() const
 		if (charset_detector == (csd_t)-1)
 		{
 			charset_detector = NULL;
-			*impl->m_log_stream << "Warning: Could not create charset detector\n";
+			doctotext_log(warning) << "Warning: Could not create charset detector";
 			encoding = "UTF-8";
 		}
 		else
@@ -188,17 +173,13 @@ std::string TXTParser::plainText() const
 			if (res != NULL)
 			{
 				encoding = std::string(res);
-				if (impl->m_verbose_logging)
-					*impl->m_log_stream << "Estimated encoding: " + encoding + "\n";
+				doctotext_log(debug) << "Estimated encoding: " + encoding;
 			}
 			else
 			{
 				encoding = "ASCII";
-				if (impl->m_verbose_logging)
-				{
-					*impl->m_log_stream << "Could not detect encoding. Document is assumed to be encoded in ASCII\n";
-					*impl->m_log_stream << "But it can be also binary. Sequences of printable characters will be extracted." << std::endl;
-				}
+				doctotext_log(debug) << "Could not detect encoding. Document is assumed to be encoded in ASCII";
+				doctotext_log(debug) << "But it can be also binary. Sequences of printable characters will be extracted.";
 				content = sequences_of_printable_characters(content);
 			}
 		}
@@ -210,7 +191,7 @@ std::string TXTParser::plainText() const
 			}
 			catch (htmlcxx::CharsetConverter::Exception& ex)
 			{
-				*impl->m_log_stream << "Warning: Cant convert text to UTF-8 from " + encoding;
+				doctotext_log(warning) << "Warning: Cant convert text to UTF-8 from " + encoding;
 				if (converter)
 					delete converter;
 				converter = NULL;
@@ -244,16 +225,13 @@ Parser&
 TXTParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
 	return *this;
 }
 
 void
 TXTParser::parse() const
 {
-	if (isVerboseLogging())
-			getLogOutStream() << "Using TXT parser.\n";
+	doctotext_log(debug) << "Using TXT parser.";
 
   Info info(StandardTag::TAG_TEXT, plainText());
   impl->m_on_new_node_signal(info);

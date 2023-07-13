@@ -44,17 +44,18 @@
 #include <cstdlib>
 #include <algorithm>
 #include "exception.h"
+#include "log.h"
 #include "misc.h"
 
 struct OCRParser::Implementation
 {
     explicit Implementation(const std::string& file_name)
-    : m_file_name{ file_name }, m_buffer{nullptr}, m_buffer_size{0}, m_verbose_logging{ false }, m_log_stream{ &std::cerr }
+    : m_file_name{ file_name }, m_buffer{nullptr}, m_buffer_size{0}
     { 
     }
 
   Implementation(const char* buffer, size_t size)
-    : m_buffer{buffer}, m_buffer_size{size}, m_verbose_logging{false}, m_log_stream{&std::cerr}
+    : m_buffer{buffer}, m_buffer_size{size}
   {
   }
 
@@ -63,8 +64,6 @@ struct OCRParser::Implementation
     std::string m_file_name{};
     const char* m_buffer;
     size_t m_buffer_size;
-    bool m_verbose_logging{ false };
-    std::ostream* m_log_stream{ nullptr };
     std::string m_tessdata_prefix;
     boost::signals2::signal<void(doctotext::Info &info)> m_on_new_node_signal;
 };  
@@ -91,8 +90,6 @@ OCRParser::OCRParser(const OCRParser& ocr_parser)
     impl = std::unique_ptr<Implementation, ImplementationDeleter>
       {new Implementation{ocr_parser.impl->m_buffer, ocr_parser.impl->m_buffer_size}, ImplementationDeleter{}};
   }
-  impl->m_log_stream = ocr_parser.impl->m_log_stream;
-  impl->m_verbose_logging = ocr_parser.impl->m_verbose_logging;
 }
 
 OCRParser::OCRParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager)
@@ -270,16 +267,6 @@ std::string OCRParser::plainText(const doctotext::FormattingStyle& formatting, c
     return output;
 }
 
-void OCRParser::setVerboseLogging(bool verbose)
-{
-    impl->m_verbose_logging = verbose;
-}
-
-void OCRParser::setLogStream(std::ostream& log_stream)
-{
-    impl->m_log_stream = &log_stream;
-}
-
 void OCRParser::setTessdataPrefix(const std::string& tessdata_prefix)
 {
     impl->m_tessdata_prefix = tessdata_prefix;
@@ -297,16 +284,13 @@ Parser&
 OCRParser::withParameters(const doctotext::ParserParameters &parameters)
 {
 	doctotext::Parser::withParameters(parameters);
-	impl->m_verbose_logging = isVerboseLogging();
-	impl->m_log_stream = &getLogOutStream();
     return *this;
 }
 
 void
 OCRParser::parse() const
 {
-    if (isVerboseLogging())
-			getLogOutStream() << "Using OCR parser.\n";
+  doctotext_log(debug) << "Using OCR parser.";
   Info info(StandardTag::TAG_TEXT);
   auto language = m_parameters.getParameterValue<Language>("language");
   info.plain_text = plainText(getFormattingStyle(), language ? *language : Language::english);

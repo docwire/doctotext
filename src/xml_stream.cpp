@@ -35,9 +35,11 @@
 #include "exception.h"
 #include <iostream>
 #include <libxml/xmlreader.h>
+#include "log.h"
 #include "pthread.h"
 
-#undef XML_STREAM_DEBUG
+namespace doctotext
+{
 
 static size_t xml_parser_usage_counter = 0;
 static pthread_mutex_t xml_parser_usage_counter_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -112,9 +114,7 @@ XmlStream::XmlStream(const std::string &xml, bool manage_xml_parser, int xml_par
 			impl = NULL;
 			throw doctotext::Exception("Cannot initialize XmlStream: xmlTextReaderRead has failed");
 		}
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		#endif
+		doctotext_log(debug) << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader);
 		impl->m_curr_depth = xmlTextReaderDepth(impl->m_reader);
 		if (impl->m_curr_depth == -1)
 		{
@@ -125,9 +125,7 @@ XmlStream::XmlStream(const std::string &xml, bool manage_xml_parser, int xml_par
 			impl = NULL;
 			throw doctotext::Exception("Cannot initialize XmlStream: xmlTextReaderDepth has failed");
 		}
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "Starting curr_depth: " << impl->m_curr_depth << "\n";
-		#endif
+		doctotext_log(debug) << "Starting curr_depth: " << impl->m_curr_depth;
 	}
 	catch (std::bad_alloc& ba)
 	{
@@ -157,53 +155,40 @@ XmlStream::operator bool()
 
 void XmlStream::next()
 {
-	#ifdef XML_STREAM_DEBUG
-	std::cerr << "# next(). curr_depth=" << impl->m_curr_depth << "\n";
-	#endif
+	doctotext_log(debug) << "# next(). curr_depth=" << impl->m_curr_depth;
 	do
 	{
 		if (xmlTextReaderRead(impl->m_reader) != 1)
 		{
-			#ifdef XML_STREAM_DEBUG
-				std::cerr << "# End of file or error - Null\n";
-			#endif
+			doctotext_log(debug) << "# End of file or error - Null";
 			impl->m_badbit = true;
 			return;
 		}
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		#endif
+		doctotext_log(debug) << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader);
 		if (xmlTextReaderDepth(impl->m_reader) < impl->m_curr_depth)
 		{
 			impl->m_badbit = true;
-			#ifdef XML_STREAM_DEBUG
-				std::cerr << "# End of level or error - Null\n";
-			#endif
+			doctotext_log(debug) << "# End of level or error - Null";
 			return;
 		}
 	} while (xmlTextReaderNodeType(impl->m_reader) == 15 || xmlTextReaderDepth(impl->m_reader) > impl->m_curr_depth);
-	#ifdef XML_STREAM_DEBUG
-		if (xmlTextReaderConstValue(impl->m_reader) == NULL)
-			std::cerr << "# null value.\n";
-		else
-			std::cerr << "# value:" << (char*)xmlTextReaderConstValue(impl->m_reader) << "\n";
-	#endif
+	doctotext_log(debug) << (
+		xmlTextReaderConstValue(impl->m_reader) == NULL ?
+			std::string("# null value.") :
+			std::string("# value:") + (char*)xmlTextReaderConstValue(impl->m_reader)
+		);
 	impl->m_badbit = false;
 }
 
 void XmlStream::levelDown()
 {
 	impl->m_curr_depth++;
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# levelDown(). curr_depth=" << impl->m_curr_depth << "\n";
-	#endif
+	doctotext_log(debug) << "# levelDown(). curr_depth=" << impl->m_curr_depth;
 	// warning TODO: <a></a> is not empty according to xmlTextReaderIsEmptyElement(). Check if it is a problem.
 	if (xmlTextReaderIsEmptyElement(impl->m_reader) != 0)
 	{
 		impl->m_badbit = true;
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# Empty or error - Null\n";
-		#endif
+		doctotext_log(debug) << "# Empty or error - Null";
 		return;
 	}
 	do
@@ -211,43 +196,32 @@ void XmlStream::levelDown()
 		if (xmlTextReaderRead(impl->m_reader) != 1)
 		{
 			impl->m_badbit = true;
-			#ifdef XML_STREAM_DEBUG
-				std::cerr << "# End of document - Null\n";
-			#endif
+			doctotext_log(debug) << "# End of document - Null";
 			return;
 		}
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		#endif
+		doctotext_log(debug) << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader);
 		if (xmlTextReaderDepth(impl->m_reader) < impl->m_curr_depth)
 		{
 			impl->m_badbit = true;
-			#ifdef XML_STREAM_DEBUG
-				std::cerr << "# Level empty or error - Null\n";
-			#endif
+			doctotext_log(debug) << "# Level empty or error - Null";
 			return;
 		}
 	} while (xmlTextReaderNodeType(impl->m_reader) == 15);
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# name:" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		if (xmlTextReaderConstValue(impl->m_reader) == NULL)
-			std::cerr << "# null value.\n";
-		else
-			std::cerr << "# value:" << (char*)xmlTextReaderConstValue(impl->m_reader) << "\n";
-	#endif
+	doctotext_log(debug) << "# name:" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
+	doctotext_log(debug) << (
+		xmlTextReaderConstValue(impl->m_reader) == NULL ?
+			std::string("# null value.") :
+			std::string("# value:") + (char*)xmlTextReaderConstValue(impl->m_reader)
+		);
 }
 
 void XmlStream::levelUp()
 {
 	impl->m_curr_depth--;
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# levelDown(). curr_depth=" << impl->m_curr_depth << "\n";
-	#endif
+	doctotext_log(debug) << "# levelDown(). curr_depth=" << impl->m_curr_depth;
 	if (impl->m_badbit)
 	{
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# Was null - now invalid.\n";
-		#endif
+		doctotext_log(debug) << "# Was null - now invalid.";
 		return;
 	}
 	for(;;)
@@ -255,63 +229,48 @@ void XmlStream::levelUp()
 		if (xmlTextReaderRead(impl->m_reader) != 1)
 		{
 			impl->m_badbit = true;
-			#ifdef XML_STREAM_DEBUG
-				std::cerr << "# End of document or error - Null\n";
-			#endif
+			doctotext_log(debug) << "# End of document or error - Null";
 			return;
 		}
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		#endif
+		doctotext_log(debug) << "# read. type=" << xmlTextReaderNodeType(impl->m_reader) << ", depth=" << xmlTextReaderDepth(impl->m_reader) << ", name=" << (char*)xmlTextReaderConstLocalName(impl->m_reader);
 		if (xmlTextReaderNodeType(impl->m_reader) == 15 && xmlTextReaderDepth(impl->m_reader) == impl->m_curr_depth)
 		{
 			impl->m_badbit = false;
 			break;
 		}
 	}
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# name:" << (char*)xmlTextReaderConstLocalName(impl->m_reader) << "\n";
-		if (xmlTextReaderConstValue(impl->m_reader) == NULL)
-			std::cerr << "# null value.\n";
-		else
-			std::cerr << "# value:" << (char*)xmlTextReaderConstValue(impl->m_reader) << "\n";
-	#endif
+	doctotext_log(debug) << "# name:" << (char*)xmlTextReaderConstLocalName(impl->m_reader);
+	doctotext_log(debug) << (
+		xmlTextReaderConstValue(impl->m_reader) == NULL ?
+			std::string("# null value.") :
+			std::string("# value:") + (char*)xmlTextReaderConstValue(impl->m_reader)
+		);
 }
 
 char* XmlStream::content()
 {
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# content()\n";
-	#endif
+	doctotext_log(debug) << "# content()";
 	return (char*)xmlTextReaderConstValue(impl->m_reader);
 }
 
 std::string XmlStream::name()
 {
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# name()\n";
-	#endif
+	doctotext_log(debug) << "# name()";
 	return (char*)xmlTextReaderConstLocalName(impl->m_reader);
 }
 
 std::string XmlStream::fullName()
 {
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# fullName()\n";
-	#endif
+	doctotext_log(debug) << "# fullName()";
 	return (char*)xmlTextReaderConstName(impl->m_reader);
 }
 
 std::string XmlStream::stringValue()
 {
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# stringValue()\n";
-	#endif
+	doctotext_log(debug) << "# stringValue()";
 	if (xmlTextReaderNodeType(impl->m_reader) != 1)
 	{
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "!!! Getting string value not from start tag.\b";
-		#endif
+		doctotext_log(debug) << "!!! Getting string value not from start tag.";
 		return "";
 	}
 	xmlNodePtr node = xmlTextReaderExpand(impl->m_reader);
@@ -327,14 +286,10 @@ std::string XmlStream::stringValue()
 
 std::string XmlStream::attribute(const std::string& attr_name)
 {
-	#ifdef XML_STREAM_DEBUG
-		std::cerr << "# attribute()\n";
-	#endif
+	doctotext_log(debug) << "# attribute()";
 	if (xmlTextReaderNodeType(impl->m_reader) != 1)
 	{
-		#ifdef XML_STREAM_DEBUG
-			std::cerr << "!!! Getting attribute not from start tag.\b";
-		#endif
+		doctotext_log(debug) << "!!! Getting attribute not from start tag.";
 		return "";
 	}
 	xmlNodePtr node = xmlTextReaderExpand(impl->m_reader);
@@ -347,3 +302,5 @@ std::string XmlStream::attribute(const std::string& attr_name)
 	xmlFree(attr);
 	return s;
 }
+
+}; // namespace doctotext

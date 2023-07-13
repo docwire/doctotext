@@ -36,6 +36,7 @@
 #include "doctotext_unzip.h"
 #include "exception.h"
 #include <iostream>
+#include "log.h"
 #include <map>
 #include "metadata.h"
 #include "misc.h"
@@ -84,8 +85,6 @@ struct XLSBParser::Implementation
 	const char* m_buffer;
 	size_t m_buffer_size;
 	std::string m_file_name;
-	bool m_verbose_logging;
-	std::ostream* m_log_stream;
 	XLSBContent m_xlsb_content;
 
 	class XLSBReader
@@ -129,15 +128,13 @@ struct XLSBParser::Implementation
 			int m_pointer;
 			unsigned long m_file_size;
 			unsigned long m_readed;
-			std::ostream* m_log_stream;
 			std::string m_file_name;
 
 		public:
-			XLSBReader(DocToTextUnzip& zipfile, const std::string& file_name, std::ostream* log_stream)
+			XLSBReader(DocToTextUnzip& zipfile, const std::string& file_name)
 			{
 				m_zipfile = &zipfile;
 				m_file_name = file_name;
-				m_log_stream = log_stream;
 				m_chunk_len = 0;
 				m_pointer = 0;
 				m_readed = 0;
@@ -519,7 +516,7 @@ struct XLSBParser::Implementation
 					uint32_t str_index;
 					xlsb_reader.readUint32(str_index);
 					if (str_index >= m_xlsb_content.m_shared_strings.size())
-						*m_log_stream << "Warning: Detected reference to string that does not exist\n";
+						doctotext_log(warning) << "Warning: Detected reference to string that does not exist";
 					else
 						text += m_xlsb_content.m_shared_strings[str_index];
 				}
@@ -540,11 +537,10 @@ struct XLSBParser::Implementation
 		if (!unzip.exists(file_name))
 		{
 			//file may not exist, nothing wrong is with that.
-			if (m_verbose_logging)
-				*m_log_stream << "File: " + file_name + " does not exist\n";
+			doctotext_log(debug) << "File: " + file_name + " does not exist";
 			return;
 		}
-		XLSBReader xlsb_reader(unzip, file_name, m_log_stream);
+		XLSBReader xlsb_reader(unzip, file_name);
 		while (!xlsb_reader.done())
 		{
 			try
@@ -576,7 +572,7 @@ struct XLSBParser::Implementation
 		std::string sheet_file_name = "xl/worksheets/sheet1.bin";
 		while (unzip.exists(sheet_file_name))
 		{
-			XLSBReader xlsb_reader(unzip, sheet_file_name, m_log_stream);
+			XLSBReader xlsb_reader(unzip, sheet_file_name);
 			while (!xlsb_reader.done())
 			{
 				try
@@ -634,7 +630,7 @@ struct XLSBParser::Implementation
 
 	void readMetadata(DocToTextUnzip& unzip, Metadata& metadata)
 	{
-		*m_log_stream << "Extracting metadata.\n";
+		doctotext_log(debug) << "Extracting metadata.";
 		std::string data;
 		if (!unzip.read("docProps/app.xml", &data))
 			throw Exception("Error while parsing docProps/app.xml");
@@ -721,8 +717,6 @@ XLSBParser::XLSBParser(const std::string& file_name)
 	{
 		impl = new Implementation();
 		impl->m_file_name = file_name;
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = NULL;
 		impl->m_buffer_size = 0;
 	}
@@ -741,8 +735,6 @@ XLSBParser::XLSBParser(const char *buffer, size_t size)
 	{
 		impl = new Implementation();
 		impl->m_file_name = "Memory buffer";
-		impl->m_verbose_logging = false;
-		impl->m_log_stream = &std::cerr;
 		impl->m_buffer = buffer;
 		impl->m_buffer_size = size;
 	}
@@ -759,16 +751,6 @@ XLSBParser::~XLSBParser()
 	delete impl;
 }
 
-void XLSBParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
-}
-
-void XLSBParser::setLogStream(std::ostream& log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 bool XLSBParser::isXLSB()
 {
 	DocToTextUnzip unzip;
@@ -781,13 +763,13 @@ bool XLSBParser::isXLSB()
 	{
 		if (impl->fileIsEncrypted())
 			throw EncryptedFileException("File is encrypted according to the Microsoft Office Document Cryptography Specification. Exact file format cannot be determined");
-		*impl->m_log_stream << "Cannot unzip file.\n";
+		doctotext_log(error) << "Cannot unzip file.";
 		return false;
 	}
 	if (!unzip.exists("xl/workbook.bin"))
 	{
 		unzip.close();
-		*impl->m_log_stream << "Cannot find xl/woorkbook.bin.\n";
+		doctotext_log(error) << "Cannot find xl/woorkbook.bin.";
 		return false;
 	}
 	unzip.close();
@@ -839,9 +821,7 @@ Metadata XLSBParser::metaData()
 
 std::string XLSBParser::plainText(const FormattingStyle& formatting)
 {
-	if (impl->m_verbose_logging){
-		*impl->m_log_stream << "Using XLSB parser.\n";
-	}
+	doctotext_log(debug) << "Using XLSB parser.";
 	std::string text;
 	DocToTextUnzip unzip;
 	if (impl->m_buffer)

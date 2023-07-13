@@ -57,11 +57,8 @@ public:
   static std::vector<std::string> getExtensions() {return {"pst", "ost"};}
 
   PSTParser(const std::string& file_name, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
-  PSTParser(const std::string& file_name, std::ostream& log_stream, bool verbose, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
   PSTParser(const char* buffer, size_t size, const std::shared_ptr<doctotext::ParserManager> &inParserManager = nullptr);
   ~PSTParser();
-  void setVerboseLogging(bool verbose);
-  void setLogStream(std::ostream* log_stream);
   bool isPST() const;
 };
 

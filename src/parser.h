@@ -169,10 +169,6 @@ protected:
   **/
   FormattingStyle getFormattingStyle() const;
 
-  std::ostream& getLogOutStream() const;
-
-  bool isVerboseLogging() const;
-
   Info sendTag(const std::string& tag_name, const std::string& text = "", const std::map<std::string, std::any> &attributes = {}) const;
   Info sendTag(const std::string& tag_name, const std::map<std::string, std::any> &attributes) const
   {

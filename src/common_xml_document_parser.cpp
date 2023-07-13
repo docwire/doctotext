@@ -37,6 +37,7 @@
 #include <iostream>
 #include <libxml/xmlreader.h>
 #include <functional>
+#include "log.h"
 #include "metadata.h"
 #include "misc.h"
 #include "xml_stream.h"
@@ -76,13 +77,11 @@ struct CommonXMLDocumentParser::Implementation
   }
 
 	bool m_manage_xml_parser;
-	bool m_verbose_logging;
 	bool is_bold;
 	bool is_italic;
 	bool is_underline;
 	bool space_preserve;
 	bool stop_emmit_signals;
-	std::ostream* m_log_stream;
 	size_t m_list_depth;
 	std::map<std::string, ListStyleVector> m_list_styles;
 	std::vector<Link> m_links;
@@ -192,8 +191,7 @@ struct CommonXMLDocumentParser::Implementation
   {
     reset_format();
     send_tag(StandardTag::TAG_P);
-    if (parser.verbose())
-      parser.getLogStream() << "ODFOOXML_PARA command.\n";
+    doctotext_log(debug) << "ODFOOXML_PARA command.";
     xml_stream.levelDown();
     text += parser.parseXmlData(xml_stream, mode, options, zipfile, links) + '\n';
     xml_stream.levelUp();
@@ -225,8 +223,7 @@ struct CommonXMLDocumentParser::Implementation
   {
     reset_format();
     send_tag(StandardTag::TAG_TABLE);
-    if (parser.verbose())
-      parser.getLogStream() << "onODFOOXMLTable command.\n";
+    doctotext_log(debug) << "onODFOOXMLTable command.";
     xml_stream.levelDown();
     text += parser.parseXmlData(xml_stream, mode, options, zipfile, links);
     xml_stream.levelUp();
@@ -241,8 +238,7 @@ struct CommonXMLDocumentParser::Implementation
   {
     reset_format();
     send_tag(StandardTag::TAG_TR);
-    if (parser.verbose())
-      parser.getLogStream() << "onODFOOXMLTableRow command.\n";
+    doctotext_log(debug) << "onODFOOXMLTableRow command.";
     xml_stream.levelDown();
     text += parser.parseXmlData(xml_stream, mode, options, zipfile, links);
     xml_stream.levelUp();
@@ -257,8 +253,7 @@ struct CommonXMLDocumentParser::Implementation
   {
     reset_format();
     send_tag(StandardTag::TAG_TD);
-    if (parser.verbose())
-      parser.getLogStream() << "onODFOOXMLTableColumn command.\n";
+    doctotext_log(debug) << "onODFOOXMLTableColumn command.";
     xml_stream.levelDown();
     text += parser.parseXmlData(xml_stream, mode, options, zipfile, links);
     xml_stream.levelUp();
@@ -271,8 +266,7 @@ struct CommonXMLDocumentParser::Implementation
                       bool& children_processed, std::string& level_suffix, bool first_on_level,
                       std::vector<Link>& links)
   {
-    if (parser.verbose())
-      parser.getLogStream() << "onODFOOXMLTextTag command.\n";
+    doctotext_log(debug) << "onODFOOXMLTextTag command.";
     bool space_preserve_prev = space_preserve;
     if (xml_stream.attribute("space") == "preserve")
       space_preserve = true;
@@ -341,8 +335,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								   bool& children_processed, std::string& level_suffix, bool first_on_level,
 								   std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_TEXT command.\n";
+			doctotext_log(debug) << "ODFOOXML_TEXT command.";
 			char* content = xml_stream.content();
 			if (content != NULL)
 				text += content;
@@ -353,8 +346,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								  bool& children_processed, std::string& level_suffix, bool first_on_level,
 								  std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_TAB command.\n";
+			doctotext_log(debug) << "ODFOOXML_TAB command.";
 			text += "\t";
 			parser.impl->send_tag(StandardTag::TAG_TEXT, "\t", {});
 		}
@@ -364,8 +356,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								  bool& children_processed, std::string& level_suffix, bool first_on_level,
 								  std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_SPACE command.\n";
+			doctotext_log(debug) << "ODFOOXML_SPACE command.";
 			std::string count_attr = xml_stream.attribute("c");
 			int count = 1;
 			if (!count_attr.empty())
@@ -382,8 +373,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								  bool& children_processed, std::string& level_suffix, bool first_on_level,
 								  std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_URL command.\n";
+			doctotext_log(debug) << "ODFOOXML_URL command.";
 			std::string mlink = xml_stream.attribute("href");
       parser.impl->send_tag(StandardTag::TAG_LINK, "", {{"url", mlink}});
 			xml_stream.levelDown();
@@ -402,8 +392,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 										bool& children_processed, std::string& level_suffix, bool first_on_level,
 										std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_LIST_STYLE command.\n";
+			doctotext_log(debug) << "ODFOOXML_LIST_STYLE command.";
 			std::string style_code = xml_stream.attribute("name");
 			if (!style_code.empty())
 			{
@@ -434,8 +423,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								   std::vector<Link>& links)
 		{
 			std::vector<std::string> list_vector;
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_LIST command.\n";
+			doctotext_log(debug) << "ODFOOXML_LIST command.";
 			++parser.getListDepth();
 			std::string header;
 			CommonXMLDocumentParser::ODFOOXMLListStyle list_style = CommonXMLDocumentParser::bullet;
@@ -489,8 +477,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 		{
 			svector cell_vector;
 			std::vector<svector> row_vector;
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_TABLE command.\n";
+			doctotext_log(debug) << "ODFOOXML_TABLE command.";
 			parser.impl->send_tag(StandardTag::TAG_TABLE);
 			xml_stream.levelDown();
 			while (xml_stream)
@@ -529,8 +516,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 									   bool& children_processed, std::string& level_suffix, bool first_on_level,
 									   std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODFOOXML_ROW command.\n";
+			doctotext_log(debug) << "ODFOOXML_ROW command.";
 		}
 
 		static void onODFTableCell(CommonXMLDocumentParser& parser, XmlStream& xml_stream, XmlParseMode mode,
@@ -538,8 +524,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								   bool& children_processed, std::string& level_suffix, bool first_on_level,
 								   std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_CELL command.\n";
+			doctotext_log(debug) << "ODF_CELL command.";
 		}
 
 		static void onODFAnnotation(CommonXMLDocumentParser& parser, XmlStream& xml_stream, XmlParseMode mode,
@@ -547,8 +532,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 									bool& children_processed, std::string& level_suffix, bool first_on_level,
 									std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_ANNOTATION command.\n";
+			doctotext_log(debug) << "ODF_ANNOTATION command.";
 			std::string creator;
 			std::string date;
 			std::string content;
@@ -584,8 +568,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								   bool& children_processed, std::string& level_suffix, bool first_on_level,
 								   std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_LINE_BREAK command.\n";
+			doctotext_log(debug) << "ODF_LINE_BREAK command.";
 			text += "\n";
 			parser.impl->send_tag(StandardTag::TAG_BR);
 		}
@@ -595,8 +578,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								 bool& children_processed, std::string& level_suffix, bool first_on_level,
 								 std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_HEADING command.\n";
+			doctotext_log(debug) << "ODF_HEADING command.";
 			xml_stream.levelDown();
 			text += parser.parseXmlData(xml_stream, mode, options, zipfile, links) + '\n';
 			xml_stream.levelUp();
@@ -608,14 +590,13 @@ class CommonXMLDocumentParser::CommandHandlersSet
 								bool& children_processed, std::string& level_suffix, bool first_on_level,
 								std::vector<Link>& links)
 		{
-			if (parser.verbose())
-				parser.getLogStream() << "ODF_OBJECT command.\n";
+			doctotext_log(debug) << "ODF_OBJECT command.";
 			std::string href = xml_stream.attribute("href");
 			std::string content_fn = (href.substr(0, 2) == "./" ? href.substr(2) : href) + "/content.xml";
 			std::string content;
 			if (!zipfile->read(content_fn, &content))
 			{
-				parser.getLogStream() << "Error reading " << content_fn << std::endl;
+				doctotext_log(error) << "Error reading " << content_fn;
 				return;
 			}
 			std::string object_text;
@@ -625,7 +606,7 @@ class CommonXMLDocumentParser::CommandHandlersSet
 			}
 			catch (Exception& ex)
 			{
-				parser.getLogStream()  << "Error parsing " << content_fn << std::endl;
+				doctotext_log(error) << "Error parsing " << content_fn;
 			}
 			text += object_text;
 		}
@@ -815,16 +796,6 @@ bool CommonXMLDocumentParser::disabledText() const
 	return impl->m_disabled_text;
 }
 
-bool CommonXMLDocumentParser::verbose() const
-{
-	return impl->m_verbose_logging;
-}
-
-std::ostream& CommonXMLDocumentParser::getLogStream() const
-{
-	return *impl->m_log_stream;
-}
-
 bool CommonXMLDocumentParser::manageXmlParser() const
 {
 	return impl->m_manage_xml_parser;
@@ -853,9 +824,7 @@ CommonXMLDocumentParser::CommonXMLDocumentParser()
 	{
 		impl = new Implementation;
 		impl->m_list_depth = 0;
-		impl->m_log_stream = &std::cerr;
 		impl->m_manage_xml_parser = true;
-		impl->m_verbose_logging = false;
 		impl->m_disabled_text = false;
 		impl->m_xml_options = 0;
 		impl->m_parser = this;
@@ -889,19 +858,9 @@ CommonXMLDocumentParser::~CommonXMLDocumentParser()
 	cleanUp();
 }
 
-void CommonXMLDocumentParser::setLogStream(std::ostream &log_stream)
-{
-	impl->m_log_stream = &log_stream;
-}
-
 void CommonXMLDocumentParser::setManageXmlParser(bool manage)
 {
 	impl->m_manage_xml_parser = manage;
-}
-
-void CommonXMLDocumentParser::setVerboseLogging(bool verbose)
-{
-	impl->m_verbose_logging = verbose;
 }
 
 int CommonXMLDocumentParser::getXmlOptions() const
