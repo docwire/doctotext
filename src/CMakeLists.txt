@@ -131,13 +131,22 @@ if(MSVC)
             )
     target_compile_options(doctotext_parsers PUBLIC "/Zc:__cplusplus")
 else()
+    find_package(Freetype REQUIRED)
+    find_package(LibXml2 REQUIRED)
+    if(APPLE)
+        find_package(JPEG REQUIRED)
+        find_package(PNG REQUIRED)
+        find_package(OpenSSL REQUIRED)
+        find_package(TIFF REQUIRED)
+        set(podofo_deps, "${JPEG_LIBRARIES} PNG::PNG OpenSSL::SSL OpenSSL::Crypto TIFF::TIFF")
+    endif()
     target_link_libraries(doctotext_parsers PRIVATE
-        podofo
+        podofo ${podofo_deps}
         freetype
         unzip
         wv2
         htmlcxx
-        ${LIBXML2_LIBRARIES}
+        LibXml2::LibXml2
         pthread
         z
         charsetdetect

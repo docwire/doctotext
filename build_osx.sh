@@ -1,17 +1,34 @@
 set -e
 brew update
 
-rm /usr/local/bin/{2to3,2to3-3.11,idle3,idle3.11,pydoc3,pydoc3.11,python3,python3-config,python3.11,python3.11-config}
-
 brew install md5sha1sum automake autogen doxygen
 
-brew install libiconv podofo freetype libxml2 zlib leptonica tesseract && tesseract --list-langs
+git clone https://github.com/microsoft/vcpkg.git
+cd vcpkg
+git checkout tags/2022.08.15
+./bootstrap-vcpkg.sh
+cd ..
+
+./vcpkg/vcpkg install libiconv:x64-osx
+./vcpkg/vcpkg install zlib:x64-osx
+./vcpkg/vcpkg install freetype:x64-osx
+./vcpkg/vcpkg install podofo:x64-osx
+./vcpkg/vcpkg install libxml2:x64-osx
+./vcpkg/vcpkg install leptonica:x64-osx
+./vcpkg/vcpkg install tesseract:x64-osx
+./vcpkg/vcpkg install boost-filesystem:x64-osx
+./vcpkg/vcpkg install boost-system:x64-osx
+./vcpkg/vcpkg install boost-signals2:x64-osx
+./vcpkg/vcpkg install boost-config:x64-osx
+./vcpkg/vcpkg install boost-dll:x64-osx
+./vcpkg/vcpkg install boost-assert:x64-osx
+./vcpkg/vcpkg install boost-smart-ptr:x64-osx
 
 wget -nc https://sourceforge.net/projects/htmlcxx/files/v0.87/htmlcxx-0.87.tar.gz
 echo "ac7b56357d6867f649e0f1f699d9a4f0f03a6e80  htmlcxx-0.87.tar.gz" | shasum -c
 tar -xzvf htmlcxx-0.87.tar.gz
 cd htmlcxx-0.87
-./configure CXXFLAGS=-std=c++17 LDFLAGS="-L/usr/local/opt/libiconv/lib" LIBS="-liconv" CPPFLAGS="-I/usr/local/opt/libiconv/include"
+./configure CXXFLAGS=-std=c++17 LDFLAGS="-L$PWD/../vcpkg/packages/libiconv_x64-osx/lib" LIBS="-liconv" CPPFLAGS="-I$PWD/../vcpkg/packages/libiconv_x64/include"
 sed -i.bak -e "s/\(allow_undefined=\)yes/\1no/" libtool
 sed -i -r -e 's/css\/libcss_parser_pp.la \\//' Makefile
 sed -i -r -e 's/css\/libcss_parser.la//' Makefile
@@ -64,13 +81,6 @@ patch -p1 -i ../mimetic-0.9.7-patches/mimetic_pointer_comparison.patch
 make -j4
 make install-strip
 cd ..
-wget https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.gz
-echo "273f1be93238a068aba4f9735a4a2b003019af067b9c183ed227780b8f36062c  boost_1_79_0.tar.gz" | shasum -c
-tar -xzvf boost_1_79_0.tar.gz
-cd boost_1_79_0
-./bootstrap.sh
-./b2 install link=shared runtime-link=shared --with-filesystem --with-system
-cd ..
 
 git clone https://github.com/libyal/libbfio.git
 cd libbfio
@@ -108,9 +118,18 @@ cmake --build .
 cmake --install .
 cd ..
 
+vcpkg_cxx_flags=""
+for vcpkg_inc_dir in $PWD/vcpkg/packages/*/include; do vcpkg_cxx_flags="$vcpkg_cxx_flags -I$vcpkg_inc_dir"; done
+
+vcpkg_linker_flags=""
+for vcpkg_lib_dir in $PWD/vcpkg/packages/*/lib; do vcpkg_linker_flags="$vcpkg_linker_flags -L$vcpkg_lib_dir"; done
+
 mkdir -p build
 cd build
-cmake -DCMAKE_CXX_STANDARD=17 ..
+cmake -DCMAKE_CXX_STANDARD=17 -DCMAKE_TOOLCHAIN_FILE=$PWD/../vcpkg/scripts/buildsystems/vcpkg.cmake \
+	-DCMAKE_CXX_FLAGS="$vcpkg_cxx_flags" \
+	-DCMAKE_SHARED_LINKER_FLAGS="$vcpkg_linker_flags" \
+	..
 cmake --build .
 cmake --build . --target doxygen install
 cd ..
